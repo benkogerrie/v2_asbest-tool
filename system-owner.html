@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Asbest Tool — System Owner (Mockup)</title>
+<!-- Gebaseerd op de gelockte User-schil; uitsluitend System Owner-specifieke features toegevoegd -->
+<style>
+  :root{--bg:#0f1320;--panel:#151a2c;--panel2:#101528;--muted:#8a93a2;--text:#e8ecf6;--border:#262c45;--accent:#6ea8fe}
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+  body{margin:0;background:#0f1320;color:var(--text)}
+  a{color:var(--accent);text-decoration:none;cursor:pointer}
+  .app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  .sidebar{background:#0b1020;border-right:1px solid var(--border);padding:16px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#6ea8fe,#8f7afe)}
+  .tenant{font-size:12px;color:var(--muted);margin-top:2px}
+  .nav a{display:block;padding:10px 12px;margin:4px 0;border-radius:8px;color:#cfd6ea}
+  .nav a:hover{background:#1b2240}
+  .nav a.active{background:#1b2240;color:#fff;border:1px solid var(--border)}
+  .content{padding:14px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .crumbs{font-size:12px;color:var(--muted)}
+  .btn{padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:#151a2c;color:#fff;cursor:pointer;font-size:14px}
+  .btn:hover{background:#1b2240}
+  .btn.primary{background:#2b63ff;border-color:#2b63ff}
+  .btn.ghost{background:transparent}
+  .card{background:#151a2c;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 8px;font-size:16px}
+  .muted{color:var(--muted);font-size:12px}
+  .chip{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#121733;font-size:12px;color:#cdd4ea}
+  .chip.ok{background:#15251a;color:#b7f7c9;border-color:#224a2f}
+  .chip.warn{background:#2c250f;color:#ffe28a;border-color:#5c4f19}
+  .chip.bad{background:#2b1414;color:#ffb1b1;border-color:#6a2a2a}
+  .chip.deleted{background:#1c1c1c;color:#bfbfbf;border-color:#3a3a3a}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  th{padding:6px 10px;text-align:left;color:var(--muted);font-size:12px}
+  td{background:#101528;border:1px solid var(--border);padding:10px;border-radius:10px;font-size:14px}
+  .uploader{border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;background:#0b1020}
+  .progress{height:8px;background:#0b1020;border:1px solid var(--border);border-radius:999px;overflow:hidden;margin-top:10px}
+  .bar{height:100%;width:0;background:#2b63ff}
+  .icon-btn{border:none;background:none;cursor:pointer;color:#e8ecf6;font-size:16px;padding:4px}
+  .icon-btn:hover{color:#6ea8fe}
+  /* Globale form-styling */
+  input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], select, textarea{
+    width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:#0d1224; color:#e9edfa; outline:none;
+  }
+  input:disabled, select:disabled, textarea:disabled{opacity:.7;color:#9aa3bf;background:#0f1328}
+  input::placeholder, textarea::placeholder{color:var(--muted)}
+  input:focus, select:focus, textarea:focus{border-color:#6ea8fe;box-shadow:0 0 0 3px rgba(110,168,254,.15)}
+  label{display:block;margin:6px 0 6px;color:var(--muted);font-size:12px}
+  /* Tabs styling (Admin) */
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tab{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#121733;cursor:pointer;font-size:13px}
+  .tab.active{background:#1b2240}
+  /* Alert banner (verwijderd rapport) */
+  .banner{background:#3a0e12;border:1px solid #6a1b1f;color:#ffb3b3;border-radius:10px;padding:10px;margin-bottom:10px}
+</style>
+<script>
+  // API Configuration - PAS DIT AAN NAAR JE RAILWAY URL
+  const API_BASE_URL = 'https://asbest-tool-staging-production.up.railway.app';
+  
+  const CURRENT_USER = { firstName: 'Owner', lastName: 'Account', full: 'System Owner' };
+
+  // API Helper Functions
+  async function apiCall(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      ...options
+    };
+    
+    try {
+      const response = await fetch(url, config);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+  }
+
+  // Health Check
+  async function checkApiHealth() {
+    try {
+      const health = await apiCall('/healthz');
+      console.log('API Health:', health);
+      return health.status === 'healthy';
+    } catch (error) {
+      console.error('API Health Check Failed:', error);
+      return false;
+    }
+  }
+
+  // Load Reports (System Owner can see all reports)
+  async function loadReports() {
+    try {
+      const reports = await apiCall('/reports');
+      console.log('Reports loaded:', reports);
+      // TODO: Update UI with real data
+      return reports;
+    } catch (error) {
+      console.error('Failed to load reports:', error);
+      return [];
+    }
+  }
+
+  // Load Tenants
+  async function loadTenants() {
+    try {
+      const tenants = await apiCall('/tenants');
+      console.log('Tenants loaded:', tenants);
+      // TODO: Update UI with real data
+      return tenants;
+    } catch (error) {
+      console.error('Failed to load tenants:', error);
+      return [];
+    }
+  }
+
+  function show(view){
+    document.querySelectorAll('[data-view]').forEach(v=>v.style.display='none');
+    document.querySelector(`[data-view="${view}"]`).style.display='block';
+    document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
+    const link = document.querySelector(`.nav a[data-link="${view}"]`);
+    if(link) link.classList.add('active');
+    const crumb = document.getElementById('crumb');
+    if(crumb) crumb.textContent = `${CURRENT_USER.full} / ${view}`;
+  }
+
+  function startUpload(success=true){
+    const bar=document.querySelector('.bar'); let w=0; bar.style.width='0%';
+    const id=setInterval(()=>{ w+=12; bar.style.width=w+'%'; if(w>=100){ clearInterval(id); if(success){ alert('Upload succesvol — rapport aangemaakt (#RPT-2025-9001)'); show('Rapporten'); } else { document.getElementById('upload-error').style.display='block'; } } },200);
+  }
+
+  function confirmDelete(){ if(confirm('Weet je zeker dat je dit rapport voor tenants wilt verbergen? (Soft delete)')){ alert('Rapport gemarkeerd als verwijderd (soft delete). System Owner blijft het zien.'); } }
+  function restoreReport(){ alert('Rapportstatus hersteld naar actief. Het is weer zichtbaar voor tenant users/admins.'); }
+
+  // Auto-logout na 30 minuten
+  let logoutTimer; function resetLogoutTimer(){ clearTimeout(logoutTimer); logoutTimer=setTimeout(()=>{alert('Je bent automatisch uitgelogd na 30 minuten inactiviteit');},1800000); }
+  ['click','mousemove','keypress'].forEach(evt=>document.addEventListener(evt,resetLogoutTimer));
+  
+  // Initialize app
+  window.onload=async ()=>{
+    resetLogoutTimer();
+    
+    // Check API health on startup
+    const apiHealthy = await checkApiHealth();
+    if (!apiHealthy) {
+      console.warn('API is not healthy - some features may not work');
+    }
+    
+    // Load initial data
+    await loadReports();
+    await loadTenants();
+    
+    show('Rapporten');
+  };
+
+  // Admin tabs
+  function switchTab(tab){ document.querySelectorAll('.admin-tab').forEach(t=>t.style.display='none'); const el = document.getElementById(tab); if(el) el.style.display='block'; document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active')); const tabBtn = document.querySelector(`[data-tab="${tab}"]`); if(tabBtn) tabBtn.classList.add('active'); }
+</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <div><strong>Asbest Tool</strong></div>
+        <div class="tenant">System Owner</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#" data-link="Rapporten" onclick="show('Rapporten')">Rapporten</a>
+      <a href="#" data-link="Profiel" onclick="show('Profiel')">Profiel</a>
+    </nav>
+    <nav class="nav" style="margin-top:auto">
+      <a href="#" data-link="Admin" onclick="show('Admin'); switchTab('tenants')">Admin</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="topbar">
+      <div class="crumbs" id="crumb">System Owner</div>
+      <div>
+        <button class="btn ghost">Help</button>
+        <button class="btn">Uitloggen</button>
+      </div>
+    </div>
+
+    <!-- RAPPORTEN (met upload voor testdoeleinden + tenant filter) -->
+    <section data-view="Rapporten">
+      <div class="card">
+        <h3>Upload nieuw rapport (test)</h3>
+        <div class="uploader">
+          <p><strong>Sleep je PDF/DOCX hierheen</strong> of tik om te kiezen</p>
+          <p class="muted">Max 50 MB • Toegestaan: .pdf, .docx</p>
+          <button class="btn primary" onclick="startUpload(true)">Start upload</button>
+          <button class="btn" onclick="startUpload(false)">Simuleer fout</button>
+          <div class="progress"><div class="bar"></div></div>
+          <div id="upload-error" style="display:none;margin-top:10px;color:#ffb1b1">
+            Upload mislukt. <button class="btn" onclick="startUpload(true)">Opnieuw proberen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3>Rapporten</h3>
+          <div>
+            <label class="muted" style="display:inline-block;margin-right:6px">Filter op tenant</label>
+            <select style="width:auto;display:inline-block">
+              <option>Alle tenants</option>
+              <option>Bedrijf Y</option>
+              <option>Gemeente X</option>
+              <option>Inspect BV</option>
+            </select>
+          </div>
+        </div>
+        <table>
+          <tr><th>Bestandsnaam (project)</th><th>Tenant</th><th>Status</th><th>#Findings</th><th>Score</th><th>Uploaddatum</th><th>Acties</th></tr>
+          <tr>
+            <td><a onclick="show('Rapportdetail')">project-123_Kade-12-Amsterdam.pdf</a></td>
+            <td>Bedrijf Y</td>
+            <td><span class="chip ok">Done</span></td>
+            <td>2</td><td>89</td><td>26-08-2025 18:52</td>
+            <td>
+              <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
+              <button class="icon-btn" title="Download rapport">⬇️</button>
+              <button class="icon-btn" title="Download conclusie & aanbevelingen (PDF)">📝</button>
+              <button class="icon-btn" title="Soft delete (verbergen voor tenant)" onclick="confirmDelete()">🗑️</button>
+            </td>
+          </tr>
+          <tr>
+            <td><a onclick="show('RapportdetailDeleted')">project-200_Havenweg-5-Rotterdam.pdf</a></td>
+            <td>Gemeente X</td>
+            <td><span class="chip deleted">Verwijderd</span></td>
+            <td>—</td><td>—</td><td>24-08-2025 09:31</td>
+            <td>
+              <button class="icon-btn" title="Herstel rapport" onclick="restoreReport()">♻️</button>
+            </td>
+          </tr>
+          <tr>
+            <td><a onclick="show('Rapportdetail')">project-130_Binnenhof-2-DenHaag.docx</a></td>
+            <td>Inspect BV</td>
+            <td><span class="chip warn">Processing</span></td>
+            <td>—</td><td>—</td><td>25-08-2025 12:10</td>
+            <td><button class="icon-btn" title="Bekijk" disabled>👁</button></td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- RAPPORTDETAIL (normaal) -->
+    <section data-view="Rapportdetail" style="display:none">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3>Rapport RPT-2025-0041 — project-123_Kade-12-Amsterdam.pdf</h3>
+          <button class="btn" onclick="show('Rapporten')">← Terug naar rapporten</button>
+        </div>
+        <div style="margin:8px 0 14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary">Download conclusie & aanbevelingen (PDF)</button>
+        </div>
+        <div class="card" style="background:#0d1224">
+          <h3>Samenvatting</h3>
+          <p>Rapport is grotendeels compleet; aanvulling nodig voor postcode en maatregelen 2A. Verwachte doorlooptijd aanvulling: 1 werkdag.</p>
+          <p class="muted">Geüpload op 26-08-2025 door S. Jansen (Tenant: Bedrijf Y)</p>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Bevindingen</h3>
+          <ul>
+            <li><strong>R001 — Projectadres (Major):</strong> Postcode ontbreekt op p.2.</li>
+            <li><strong>R012 — RSKL ↔ maatregelen (Critical):</strong> 2A genoemd; maatregelen onvoldoende gespecificeerd.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- RAPPORTDETAIL (verwijderd) met hersteloptie) -->
+    <section data-view="RapportdetailDeleted" style="display:none">
+      <div class="card">
+        <div class="banner">Dit rapport is gemarkeerd als <strong>verwijderd</strong> voor tenant-gebruikers. Je kunt het herstellen om het weer zichtbaar te maken.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3>Rapport RPT-2025-0200 — project-200_Havenweg-5-Rotterdam.pdf</h3>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="show('Rapporten')">← Terug naar rapporten</button>
+            <button class="btn primary" onclick="restoreReport()">Herstel rapport</button>
+          </div>
+        </div>
+        <div class="card" style="background:#0d1224">
+          <h3>Samenvatting</h3>
+          <p>Laatste geldige beoordeling: incomplete bijlage 3; herstel vereist.</p>
+          <p class="muted">Geüpload op 24-08-2025 door P. de Groot (Tenant: Gemeente X)</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFIEL (zonder tenant-veld) -->
+    <section data-view="Profiel" style="display:none">
+      <div class="card">
+        <h3>Mijn profiel</h3>
+        <div class="grid">
+          <div>
+            <label class="muted">Voornaam</label>
+            <input type="text" value="System"/>
+          </div>
+          <div>
+            <label class="muted">Achternaam</label>
+            <input type="text" value="Owner"/>
+          </div>
+          <div>
+            <label class="muted">Email</label>
+            <input type="email" value="owner@asbest-tool.nl"/>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn primary">Opslaan</button>
+          <button class="btn">Wachtwoord wijzigen</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMIN: tabs Tenants en Users (met tenantfilter) -->
+    <section data-view="Admin" style="display:none">
+      <div class="tabs">
+        <div class="tab active" data-tab="tenants" onclick="switchTab('tenants')">Tenants</div>
+        <div class="tab" data-tab="users" onclick="switchTab('users')">Users</div>
+      </div>
+
+      <!-- Tenants-tab -->
+      <div id="tenants" class="admin-tab">
+        <div class="card">
+          <h3>Tenants</h3>
+          <table>
+            <tr><th>Naam</th><th>KvK</th><th>Contact</th><th>#Users</th><th>Acties</th></tr>
+            <tr>
+              <td>Bedrijf Y</td><td>12345678</td><td>info@bedrijf-y.nl</td><td>12</td>
+              <td>
+                <button class="icon-btn" title="Bekijk">👁</button>
+                <button class="icon-btn" title="Deactiveer tenant">🚫</button>
+              </td>
+            </tr>
+            <tr>
+              <td>Gemeente X</td><td>87654321</td><td>beheer@gemeente-x.nl</td><td>7</td>
+              <td>
+                <button class="icon-btn" title="Bekijk">👁</button>
+                <button class="icon-btn" title="Deactiveer tenant">🚫</button>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Users-tab -->
+      <div id="users" class="admin-tab" style="display:none">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3>Users</h3>
+            <div>
+              <label class="muted" style="display:inline-block;margin-right:6px">Filter op tenant</label>
+              <select style="width:auto;display:inline-block">
+                <option>Alle tenants</option>
+                <option>Bedrijf Y</option>
+                <option>Gemeente X</option>
+                <option>Inspect BV</option>
+              </select>
+            </div>
+          </div>
+          <table>
+            <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Tenant</th><th>Rol</th><th>Status</th><th>Acties</th></tr>
+            <tr>
+              <td>S.</td><td>Jansen</td><td>s.jansen@bedrijf-y.nl</td><td>Bedrijf Y</td><td>Admin</td><td><span class="chip ok">Actief</span></td>
+              <td>
+                <button class="icon-btn" title="Deactiveer gebruiker">🚫</button>
+                <button class="icon-btn" title="Maak User">👤</button>
+              </td>
+            </tr>
+            <tr>
+              <td>P.</td><td>de Groot</td><td>p.degroot@gemeente-x.nl</td><td>Gemeente X</td><td>User</td><td><span class="chip ok">Actief</span></td>
+              <td>
+                <button class="icon-btn" title="Maak Admin">⭐</button>
+                <button class="icon-btn" title="Reset wachtwoord">🔐</button>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</body>
+</html>

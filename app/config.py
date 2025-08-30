@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Upload limits
     max_upload_mb: int = 50
     
+    # CORS Configuration
+    cors_origins: Optional[str] = None
+    
     class Config:
         env_file = ".env"
 
