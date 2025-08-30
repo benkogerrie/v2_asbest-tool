@@ -70,6 +70,29 @@ def client(test_session):
 
 
 @pytest.fixture
+def mock_auth_dependencies():
+    """Mock authentication dependencies for testing."""
+    from app.auth.dependencies import get_current_active_user, get_current_admin_or_system_owner
+    
+    async def mock_get_current_active_user():
+        # This will be overridden in individual tests
+        pass
+    
+    async def mock_get_current_admin_or_system_owner():
+        # This will be overridden in individual tests
+        pass
+    
+    app.dependency_overrides[get_current_active_user] = mock_get_current_active_user
+    app.dependency_overrides[get_current_admin_or_system_owner] = mock_get_current_admin_or_system_owner
+    
+    yield
+    
+    # Clean up
+    app.dependency_overrides.pop(get_current_active_user, None)
+    app.dependency_overrides.pop(get_current_admin_or_system_owner, None)
+
+
+@pytest.fixture
 async def test_tenant(test_session):
     """Create a test tenant."""
     tenant = Tenant(

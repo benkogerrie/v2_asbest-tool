@@ -73,13 +73,13 @@ class ObjectStorage:
                         return False
                 else:
                     logger.error(f"Bucket {self.bucket} does not exist and auto-creation is disabled in production")
-                    return False
+                    raise StorageError(f"Storage bucket '{self.bucket}' does not exist. Please create it manually in production.")
             else:
                 logger.error(f"Error checking bucket {self.bucket}: {e}")
-                return False
+                raise StorageError(f"Storage error: {e}")
         except Exception as e:
             logger.error(f"Unexpected error ensuring bucket {self.bucket}: {e}")
-            return False
+            raise StorageError(f"Storage error: {e}")
     
     def upload_fileobj(
         self,

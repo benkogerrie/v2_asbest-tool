@@ -45,9 +45,31 @@ def validate_file_upload(file: UploadFile) -> None:
     if file.content_type not in ALLOWED_EXTENSIONS.values():
         raise UnsupportedFileTypeError(f"Invalid content type: {file.content_type}")
     
-    # Check file size
-    if file.size and file.size > MAX_FILE_SIZE:
-        raise FileTooLargeError(f"File too large. Max size: {settings.max_upload_mb}MB")
+    # Check file size - handle both known size and streaming validation
+    if file.size is not None:
+        if file.size > MAX_FILE_SIZE:
+            raise FileTooLargeError(f"File too large. Max size: {settings.max_upload_mb}MB")
+    else:
+        # For streaming uploads, we'll validate during upload
+        logger.warning(f"File size unknown for {file.filename}, will validate during upload")
+
+
+async def validate_file_size_during_upload(file_stream, max_size: int) -> None:
+    """Validate file size during streaming upload."""
+    chunk_size = 8192  # 8KB chunks
+    total_size = 0
+    
+    # Read file in chunks and check size
+    while True:
+        chunk = await file_stream.read(chunk_size)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > max_size:
+            raise FileTooLargeError(f"File too large. Max size: {settings.max_upload_mb}MB")
+    
+    # Reset file pointer for actual upload
+    await file_stream.seek(0)
 
 
 @router.post("/", response_model=ReportOut, status_code=201)
@@ -78,36 +100,45 @@ async def upload_report(
             )
         target_tenant_id = current_user.tenant_id
     
-    # Generate unique object key following the specified convention
-    file_ext = file.filename.lower().split('.')[-1]
-    report_uuid = uuid.uuid4()
-    object_key = f"tenants/{target_tenant_id}/reports/{report_uuid}/source/{file.filename}"
-    
     try:
         # Ensure bucket exists
         if not storage.ensure_bucket():
             raise StorageError("Failed to ensure storage bucket exists")
         
-        # Upload file to storage
-        if not storage.upload_fileobj(
-            file.file,
-            object_key,
-            ALLOWED_EXTENSIONS[f'.{file_ext}']
-        ):
-            raise StorageError("Failed to upload file to storage")
-        
-        # Create report record
+        # Create report record first to get the ID
         report = Report(
-            id=report_uuid,  # Use the same UUID for the report
             tenant_id=target_tenant_id,
             uploaded_by=current_user.id,
             filename=file.filename,
             status=ReportStatus.PROCESSING,
             finding_count=0,
             score=None,
-            source_object_key=object_key,
+            source_object_key="",  # Will be updated after upload
             conclusion_object_key=None
         )
+        
+        session.add(report)
+        await session.flush()  # Get the ID without committing
+        
+        # Generate object key using the actual report ID
+        object_key = f"tenants/{target_tenant_id}/reports/{report.id}/source/{file.filename}"
+        
+        # Update the report with the correct object key
+        report.source_object_key = object_key
+        
+        # Upload file to storage with size validation
+        file_ext = file.filename.lower().split('.')[-1]
+        
+        # If file size is unknown, validate during upload
+        if file.size is None:
+            await validate_file_size_during_upload(file.file, MAX_FILE_SIZE)
+        
+        if not storage.upload_fileobj(
+            file.file,
+            object_key,
+            ALLOWED_EXTENSIONS[f'.{file_ext}']
+        ):
+            raise StorageError("Failed to upload file to storage")
         
         session.add(report)
         await session.commit()
@@ -132,7 +163,8 @@ async def upload_report(
         logger.error(f"Error uploading report: {e}")
         # Try to clean up uploaded file if report creation failed
         try:
-            storage.delete_object(object_key)
+            if 'object_key' in locals():
+                storage.delete_object(object_key)
         except:
             pass  # Ignore cleanup errors
         raise StorageError(f"Failed to process upload: {str(e)}")

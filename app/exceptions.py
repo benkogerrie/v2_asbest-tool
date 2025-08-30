@@ -58,7 +58,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail}
+        content={"error": {"code": exc.status_code, "message": exc.detail}}
     )
 
 
@@ -67,7 +67,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     logger.warning(f"Validation Error: {exc.errors()}")
     return JSONResponse(
         status_code=422,
-        content={"detail": "Validation error", "errors": exc.errors()}
+        content={"error": {"code": 422, "message": "Validation error", "errors": exc.errors()}}
     )
 
 
@@ -76,5 +76,5 @@ async def general_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled Exception: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"}
+        content={"error": {"code": 500, "message": "Internal server error"}}
     )
