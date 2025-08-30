@@ -10,7 +10,10 @@ Een moderne FastAPI-gebaseerde applicatie voor asbest management met multi-tenan
 - **Alembic** - Database migraties
 - **Multi-tenant architectuur** - Isolatie tussen verschillende bedrijven
 - **Role-based access control** - SYSTEM_OWNER, ADMIN, USER rollen
-- **Docker Compose** - Eenvoudige deployment
+- **Object Storage** - S3/MinIO compatibele bestandsopslag
+- **File Upload** - PDF/DOCX upload met validatie en RBAC
+- **Audit Logging** - Volledige audit trail voor alle acties
+- **Docker Compose** - Eenvoudige deployment met MinIO
 - **Comprehensive testing** - pytest met httpx
 
 ## 🏗️ **Architectuur**
@@ -93,12 +96,18 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ### **Docker Setup**
 
 ```bash
-# Start alle services
+# Start alle services (API, DB, MinIO, Adminer)
 docker-compose up -d
 
 # Bekijk logs
 docker-compose logs -f api
 ```
+
+### **MinIO Console**
+- **URL**: http://localhost:9001
+- **Username**: `minioadmin`
+- **Password**: `minioadmin`
+- **Bucket**: `asbesttool-dev` (wordt automatisch aangemaakt)
 
 ## 📚 **API Documentatie**
 
@@ -133,6 +142,23 @@ curl -X GET "http://localhost:8000/users/me" \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
+### **File Upload Voorbeelden**
+```bash
+# Upload als tenant admin (eigen tenant)
+curl -X POST "http://localhost:8000/reports/" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -F "file=@report.pdf"
+
+# Upload als system owner (specificeer tenant_id)
+curl -X POST "http://localhost:8000/reports/?tenant_id=TENANT_UUID" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -F "file=@report.docx"
+
+# List reports
+curl -X GET "http://localhost:8000/reports/" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
 ## 🧪 **Testing**
 
 ```bash
@@ -156,8 +182,10 @@ v2_asbest-tool/
 │   ├── auth/               # Authenticatie configuratie
 │   ├── models/             # Database modellen
 │   ├── schemas/            # Pydantic schemas
+│   ├── services/           # Business logic services
 │   ├── config.py           # Configuratie
 │   ├── database.py         # Database setup
+│   ├── exceptions.py       # Custom exceptions
 │   └── main.py             # FastAPI applicatie
 ├── scripts/
 │   └── seed.py             # Database seeding

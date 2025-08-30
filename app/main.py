@@ -1,11 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 
 from app.config import settings
-from app.api import health, tenants, users
+from app.api import health, tenants, users, reports
 from app.auth.auth import fastapi_users, auth_backend
 from app.models.user import User
 from app.schemas.user import UserRead, UserCreate
+from app.exceptions import (
+    http_exception_handler,
+    validation_exception_handler,
+    general_exception_handler
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -27,12 +33,18 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(tenants.router)
 app.include_router(users.router)
+app.include_router(reports.router)
 
 # Include FastAPI Users routes
 app.include_router(fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"])
 app.include_router(fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"])
 app.include_router(fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"])
 app.include_router(fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"])
+
+# Add exception handlers
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
 
 
 @app.get("/")

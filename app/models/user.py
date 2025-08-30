@@ -32,6 +32,8 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     
     # Relationships
     tenant = relationship("Tenant", back_populates="users")
+    reports = relationship("Report", back_populates="uploaded_by_user")
+    audit_logs = relationship("ReportAuditLog", back_populates="actor_user")
     
     # Table constraints - Email uniqueness scoped to tenant_id
     __table_args__ = (

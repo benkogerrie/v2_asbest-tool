@@ -19,6 +19,7 @@ class Tenant(Base):
     
     # Relationships
     users = relationship("User", back_populates="tenant")
+    reports = relationship("Report", back_populates="tenant")
     
     def __repr__(self):
         return f"<Tenant(id={self.id}, name='{self.name}')>"

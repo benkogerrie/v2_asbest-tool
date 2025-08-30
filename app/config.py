@@ -15,6 +15,18 @@ class Settings(BaseSettings):
     app_name: str = "Asbest Tool API"
     debug: bool = False
     
+    # S3/MinIO Storage
+    s3_endpoint: str = "http://localhost:9000"
+    s3_region: str = "us-east-1"
+    s3_access_key_id: str = "minioadmin"
+    s3_secret_access_key: str = "minioadmin"
+    s3_bucket: str = "asbesttool-dev"
+    s3_use_path_style: bool = True
+    s3_secure: bool = False
+    
+    # Upload limits
+    max_upload_mb: int = 50
+    
     class Config:
         env_file = ".env"
 
