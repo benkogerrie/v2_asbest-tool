@@ -1,268 +1,208 @@
-# V2 Asbest Tool API
+# Asbest Tool API
 
-Een moderne FastAPI-gebaseerde applicatie voor asbest management met multi-tenant architectuur en role-based access control.
+Een FastAPI-gebaseerde API voor het uploaden en analyseren van asbest rapporten.
 
-## 🚀 **Features**
+## Features
 
-- **FastAPI** - Moderne, snelle web framework
-- **FastAPI Users** - JWT authenticatie en user management
-- **PostgreSQL** - Async database met SQLAlchemy ORM
-- **Alembic** - Database migraties
-- **Multi-tenant architectuur** - Isolatie tussen verschillende bedrijven
-- **Role-based access control** - SYSTEM_OWNER, ADMIN, USER rollen
-- **Object Storage** - S3/MinIO compatibele bestandsopslag
-- **File Upload** - PDF/DOCX upload met validatie en RBAC
-- **Audit Logging** - Volledige audit trail voor alle acties
-- **Docker Compose** - Eenvoudige deployment met MinIO
-- **Comprehensive testing** - pytest met httpx
+- **Slice 1**: Basis authenticatie en autorisatie
+- **Slice 2**: File upload functionaliteit
+- **Slice 3**: Rapportenlijst en rapportdetail API (huidige implementatie)
 
-## 🏗️ **Architectuur**
+## API Endpoints
 
-### **Multi-tenant Model**
-- **Tenants**: Bedrijven/organisaties met eigen data isolatie
-- **Users**: Gebruikers gekoppeld aan tenants (behalve system owner)
-- **Roles**: Hiërarchische toegangscontrole
+### Authenticatie
 
-### **Database Schema**
-```sql
--- Tenants tabel
-tenants (
-  id UUID PRIMARY KEY,
-  name VARCHAR NOT NULL,
-  kvk VARCHAR NOT NULL,
-  contact_email VARCHAR NOT NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT NOW()
-)
+Alle endpoints vereisen JWT authenticatie via Bearer token.
 
--- Users tabel
-users (
-  id UUID PRIMARY KEY,
-  tenant_id UUID REFERENCES tenants(id),
-  email VARCHAR(320) UNIQUE NOT NULL,
-  first_name VARCHAR NOT NULL,
-  last_name VARCHAR NOT NULL,
-  role ENUM('USER', 'ADMIN', 'SYSTEM_OWNER') NOT NULL,
-  hashed_password VARCHAR(1024) NOT NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_superuser BOOLEAN DEFAULT FALSE,
-  is_verified BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT NOW()
-)
-```
+### File Upload (Slice 2)
 
-## 🛠️ **Installatie**
+#### POST /reports/
 
-### **Prerequisites**
-- Python 3.11+
-- Docker & Docker Compose
-- Git
+Upload een rapport bestand.
 
-### **Lokale Setup**
-
-1. **Clone de repository**
-```bash
-git clone https://github.com/benkogerrie/v2_asbest-tool.git
-cd v2_asbest-tool
-```
-
-2. **Installeer dependencies**
-```bash
-pip install -r requirements.txt
-# Of met Poetry:
-poetry install
-```
-
-3. **Start de database**
-```bash
-docker-compose up -d db
-```
-
-4. **Run database migraties**
-```bash
-python -m alembic upgrade head
-```
-
-5. **Seed de database**
-```bash
-python -m scripts.seed
-```
-
-6. **Start de applicatie**
-```bash
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### **Docker Setup**
+**Voorbeelden:**
 
 ```bash
-# Start alle services (API, DB, MinIO, Adminer)
-docker-compose up -d
-
-# Bekijk logs
-docker-compose logs -f api
-```
-
-### **MinIO Console**
-- **URL**: http://localhost:9001
-- **Username**: `minioadmin`
-- **Password**: `minioadmin`
-- **Bucket**: `asbesttool-dev` (wordt automatisch aangemaakt)
-
-## 📚 **API Documentatie**
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI JSON**: http://localhost:8000/openapi.json
-
-## 🔐 **Authenticatie**
-
-### **Test Accounts**
-Na het uitvoeren van de seed script zijn de volgende accounts beschikbaar:
-
-- **System Owner**
-  - Email: `system@asbest-tool.nl`
-  - Wachtwoord: `SystemOwner123!`
-  - Rechten: Volledige toegang tot alle tenants en users
-
-- **Tenant Admin**
-  - Email: `admin@bedrijfy.nl`
-  - Wachtwoord: `Admin123!`
-  - Rechten: Alleen toegang tot eigen tenant
-
-### **JWT Token Gebruik**
-```bash
-# Login
-curl -X POST "http://localhost:8000/auth/jwt/login" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=system@asbest-tool.nl&password=SystemOwner123!"
-
-# Gebruik token
-curl -X GET "http://localhost:8000/users/me" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
-
-### **File Upload Voorbeelden**
-```bash
-# Upload als tenant admin (eigen tenant)
+# Upload als regular user (eigen tenant)
 curl -X POST "http://localhost:8000/reports/" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  -F "file=@report.pdf"
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@rapport.pdf"
 
-# Upload als system owner (specificeer tenant_id)
-curl -X POST "http://localhost:8000/reports/?tenant_id=TENANT_UUID" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  -F "file=@report.docx"
-
-# List reports
-curl -X GET "http://localhost:8000/reports/" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+# Upload als SYSTEM_OWNER naar specifieke tenant
+curl -X POST "http://localhost:8000/reports/?tenant_id=550e8400-e29b-41d4-a716-446655440001" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@rapport.pdf"
 ```
 
-## 🧪 **Testing**
-
-```bash
-# Run alle tests
-python -m pytest
-
-# Run tests met coverage
-python -m pytest --cov=app
-
-# Run specifieke test
-python -m pytest tests/test_auth.py::TestAuth::test_login_works -v
-```
-
-## 📁 **Project Structuur**
-
-```
-v2_asbest-tool/
-├── alembic/                 # Database migraties
-├── app/
-│   ├── api/                # API endpoints
-│   ├── auth/               # Authenticatie configuratie
-│   ├── models/             # Database modellen
-│   ├── schemas/            # Pydantic schemas
-│   ├── services/           # Business logic services
-│   ├── config.py           # Configuratie
-│   ├── database.py         # Database setup
-│   ├── exceptions.py       # Custom exceptions
-│   └── main.py             # FastAPI applicatie
-├── scripts/
-│   └── seed.py             # Database seeding
-├── tests/                  # Unit tests
-├── docker-compose.yml      # Docker services
-├── Dockerfile              # API container
-├── pyproject.toml          # Poetry configuratie
-└── README.md               # Deze file
-```
-
-## 🔧 **Configuratie**
-
-### **Environment Variables**
-Maak een `.env` bestand aan:
-
-```env
-# Database
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool
-
-# JWT
-SECRET_KEY=your-secret-key-change-in-production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# App
-APP_NAME=Asbest Tool API
-DEBUG=false
-```
-
-## 🚀 **Deployment**
-
-### **Production**
-```bash
-# Build en start
-docker-compose -f docker-compose.prod.yml up -d
-
-# Migraties
-docker-compose exec api python -m alembic upgrade head
-
-# Seed data
-docker-compose exec api python -m scripts.seed
-```
-
-## 📊 **Health Check**
-
-```bash
-curl http://localhost:8000/healthz
-```
-
-Response:
+**Response:**
 ```json
 {
-  "status": "healthy",
-  "database": "connected",
-  "timestamp": "2024-01-01T00:00:00Z"
+  "id": "794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8",
+  "filename": "rapport.pdf",
+  "status": "PROCESSING",
+  "finding_count": 0,
+  "score": null,
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440001",
+  "uploaded_by": "550e8400-e29b-41d4-a716-446655440000",
+  "uploaded_at": "2025-01-27T10:30:00Z",
+  "source_object_key": "tenants/550e8400-e29b-41d4-a716-446655440001/reports/794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8/source/rapport.pdf",
+  "conclusion_object_key": null
 }
 ```
 
-## 🤝 **Bijdragen**
+### Rapportenlijst (Slice 3)
 
-1. Fork de repository
-2. Maak een feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit je wijzigingen (`git commit -m 'Add amazing feature'`)
-4. Push naar de branch (`git push origin feature/amazing-feature`)
-5. Open een Pull Request
+#### GET /reports/
 
-## 📄 **Licentie**
+Haal een lijst van rapporten op met filtering, sortering en paginatie.
 
-Dit project is gelicenseerd onder de MIT License - zie het [LICENSE](LICENSE) bestand voor details.
+**Query Parameters:**
+- `page` (int, default=1): Pagina nummer
+- `page_size` (int, default=20, max=100): Items per pagina
+- `status` (optional): Filter op status (PROCESSING, DONE, FAILED, DELETED_SOFT)
+- `tenant_id` (optional, SYSTEM_OWNER only): Filter op tenant ID
+- `q` (optional): Zoeken in bestandsnaam (case-insensitive)
+- `sort` (optional): Sortering (uploaded_at_desc, uploaded_at_asc, filename_asc, filename_desc)
 
-## 👥 **Auteurs**
+**Voorbeelden:**
 
-- **Ben Kogerrie** - *Initial work* - [benkogerrie](https://github.com/benkogerrie)
+```bash
+# Basis lijst voor USER/ADMIN (eigen tenant)
+curl -X GET "http://localhost:8000/reports/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
-## 🙏 **Acknowledgments**
+# Met paginatie
+curl -X GET "http://localhost:8000/reports/?page=2&page_size=10" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
-- FastAPI voor het geweldige framework
-- FastAPI Users voor de authenticatie functionaliteit
-- SQLAlchemy voor de ORM
-- Alembic voor database migraties
+# Met status filter
+curl -X GET "http://localhost:8000/reports/?status=DONE" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Met zoeken
+curl -X GET "http://localhost:8000/reports/?q=project" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Met sortering
+curl -X GET "http://localhost:8000/reports/?sort=filename_asc" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# SYSTEM_OWNER: alle rapporten
+curl -X GET "http://localhost:8000/reports/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# SYSTEM_OWNER: filter op tenant
+curl -X GET "http://localhost:8000/reports/?tenant_id=550e8400-e29b-41d4-a716-446655440001" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8",
+      "filename": "project-123_Kade-12-Amsterdam.pdf",
+      "status": "DONE",
+      "finding_count": 2,
+      "score": 89,
+      "uploaded_at": "2025-01-27T10:30:00Z",
+      "tenant_name": "Bedrijf Y"
+    }
+  ],
+  "page": 1,
+  "page_size": 20,
+  "total": 42
+}
+```
+
+### Rapport Detail (Slice 3)
+
+#### GET /reports/{id}
+
+Haal gedetailleerde informatie op over een specifiek rapport.
+
+**Voorbeelden:**
+
+```bash
+# Basis detail opvragen
+curl -X GET "http://localhost:8000/reports/794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "id": "794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8",
+  "filename": "project-123_Kade-12-Amsterdam.pdf",
+  "summary": "Nog geen conclusie beschikbaar",
+  "findings": [],
+  "uploaded_at": "2025-01-27T10:30:00Z",
+  "uploaded_by_name": "S. Jansen",
+  "tenant_name": "Bedrijf Y",
+  "status": "PROCESSING",
+  "finding_count": 0,
+  "score": null
+}
+```
+
+## RBAC (Role-Based Access Control)
+
+### USER/ADMIN
+- Kan alleen rapporten van eigen tenant zien
+- Kan geen soft-deleted rapporten zien
+- Kan geen tenant_id filter gebruiken
+
+### SYSTEM_OWNER
+- Kan alle rapporten zien (inclusief soft-deleted)
+- Kan optioneel filteren op tenant_id
+- Ziet tenant_name in responses
+
+## Status Codes
+
+- `200`: Success
+- `201`: Created (upload)
+- `400`: Bad Request
+- `401`: Unauthorized
+- `403`: Forbidden (RBAC violation)
+- `404`: Not Found
+- `413`: File Too Large
+- `415`: Unsupported Media Type
+- `422`: Validation Error
+- `500`: Internal Server Error
+
+## Setup
+
+1. Installeer dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Configureer environment variables:
+```bash
+cp env.sample .env
+# Vul de benodigde waarden in
+```
+
+3. Run database migrations:
+```bash
+alembic upgrade head
+```
+
+4. Start de applicatie:
+```bash
+uvicorn app.main:app --reload
+```
+
+## Testing
+
+Run de tests:
+```bash
+pytest tests/ -v
+```
+
+## Volgende Slices
+
+- **Slice 4**: AI processing en analyse
+- **Slice 5**: Conclusies en bevindingen
+- **Slice 6**: UI integratie

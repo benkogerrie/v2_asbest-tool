@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.report import Report, ReportAuditLog, ReportStatus, AuditAction
-from app.schemas.report import ReportOut
+from app.schemas.report import ReportOut, ReportListResponse, ReportDetail
 from app.auth.dependencies import get_current_active_user, get_current_admin_or_system_owner
 from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
@@ -157,7 +157,7 @@ async def upload_report(
         
         logger.info(f"Report uploaded successfully: {report.id} by user {current_user.id}")
         
-        return report
+        return ReportOut.from_orm(report)
         
     except Exception as e:
         logger.error(f"Error uploading report: {e}")
@@ -170,52 +170,89 @@ async def upload_report(
         raise StorageError(f"Failed to process upload: {str(e)}")
 
 
-@router.get("/", response_model=list[ReportOut])
+@router.get("/", response_model=ReportListResponse)
 async def list_reports(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    status: Optional[ReportStatus] = Query(None, description="Filter by status"),
+    tenant_id: Optional[str] = Query(None, description="Filter by tenant ID (SYSTEM_OWNER only)"),
+    q: Optional[str] = Query(None, description="Search in filename"),
+    sort: str = Query("uploaded_at_desc", description="Sort order"),
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_db)
 ):
-    """List reports based on user role."""
-    from sqlalchemy import select
+    """List reports with filtering, sorting and pagination."""
+    from app.services.reports import ReportService
     
-    if current_user.role == UserRole.SYSTEM_OWNER:
-        # System owner sees all reports
-        result = await session.execute(select(Report))
-        reports = result.scalars().all()
-    else:
-        # Regular users see only reports from their tenant
-        result = await session.execute(
-            select(Report).where(Report.tenant_id == current_user.tenant_id)
+    # Validate sort parameter
+    valid_sorts = ["uploaded_at_desc", "uploaded_at_asc", "filename_asc", "filename_desc"]
+    if sort not in valid_sorts:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid sort parameter. Valid options: {', '.join(valid_sorts)}"
         )
-        reports = result.scalars().all()
     
-    return reports
+    # Validate tenant_id parameter (only allowed for SYSTEM_OWNER)
+    if tenant_id and current_user.role != UserRole.SYSTEM_OWNER:
+        raise HTTPException(
+            status_code=403,
+            detail="tenant_id filter is only allowed for SYSTEM_OWNER"
+        )
+    
+    # Validate tenant_id format if provided
+    if tenant_id:
+        try:
+            uuid.UUID(tenant_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid tenant_id format"
+            )
+    
+    service = ReportService(session)
+    reports, total = await service.get_reports_with_filters(
+        current_user=current_user,
+        page=page,
+        page_size=page_size,
+        status=status,
+        tenant_id=tenant_id,
+        q=q,
+        sort=sort
+    )
+    
+    return ReportListResponse(
+        items=reports,
+        page=page,
+        page_size=page_size,
+        total=total
+    )
 
 
-@router.get("/{report_id}", response_model=ReportOut)
-async def get_report(
+@router.get("/{report_id}", response_model=ReportDetail)
+async def get_report_detail(
     report_id: str,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_db)
 ):
-    """Get a specific report."""
-    from sqlalchemy import select
+    """Get detailed report information."""
+    from app.services.reports import ReportService
     
-    result = await session.execute(
-        select(Report).where(Report.id == uuid.UUID(report_id))
-    )
-    report = result.scalar_one_or_none()
+    # Validate report_id format
+    try:
+        uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
     
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
+    service = ReportService(session)
+    report_detail = await service.get_report_detail(report_id, current_user)
     
-    # Check access rights
-    if current_user.role == UserRole.SYSTEM_OWNER:
-        # System owner can see all reports
-        pass
-    else:
-        # Regular users can only see reports from their tenant
-        if report.tenant_id != current_user.tenant_id:
-            raise HTTPException(status_code=403, detail="Access denied")
+    if not report_detail:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
     
-    return report
+    return report_detail
