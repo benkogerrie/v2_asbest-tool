@@ -354,7 +354,8 @@ def test_upload_report_regular_user_with_tenant(client, mock_auth):
     assert "Cannot specify tenant_id" in response.json()["error"]["message"]
 
 
-def test_upload_report_unauthorized(client):
+def 
+    test_upload_report_unauthorized(client):
     """Test upload without authentication."""
     test_file = io.BytesIO(b"test content")
     
