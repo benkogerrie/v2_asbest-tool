@@ -1,32 +1,20 @@
+"""
+Test configuration and fixtures.
+"""
 import asyncio
 import pytest
-from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from fastapi.testclient import TestClient
 
 from app.main import app
-from app.database import Base, get_db
+from app.database import get_db, Base
+from app.models.user import User
 from app.models.tenant import Tenant
-from app.models.user import User, UserRole
-from app.auth.auth import get_user_manager
 
 
-# Test database URL
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-# Create test engine
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-
-# Create test session factory
-TestingSessionLocal = async_sessionmaker(
-    test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+# Test database URL - using PostgreSQL
+TEST_DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool"
 
 
 @pytest.fixture(scope="session")
@@ -37,110 +25,79 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(autouse=True)
-async def setup_database():
-    """Setup test database."""
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with test_engine.begin() as conn:
+@pytest.fixture(scope="session")
+async def test_engine():
+    """Create test database engine."""
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+    )
+    
+    # Create tables
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    
+    yield engine
+    
+    # Cleanup
+    await engine.dispose()
 
 
 @pytest.fixture
-async def db_session():
-    """Get test database session."""
-    async with TestingSessionLocal() as session:
+async def test_session(test_engine):
+    """Create test database session."""
+    async_session = sessionmaker(
+        test_engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    async with async_session() as session:
         yield session
 
 
 @pytest.fixture
-async def client(db_session):
-    """Get test client."""
+def client(test_session):
+    """Create test client."""
     async def override_get_db():
-        yield db_session
+        yield test_session
     
     app.dependency_overrides[get_db] = override_get_db
     
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
+    with TestClient(app) as test_client:
+        yield test_client
     
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
-async def system_owner(db_session):
-    """Create a system owner user."""
-    user_manager = await anext(get_user_manager(db_session))
-    
-    system_owner_data = {
-        "email": "system@test.nl",
-        "password": "SystemOwner123!",
-        "first_name": "System",
-        "last_name": "Owner",
-        "role": UserRole.SYSTEM_OWNER,
-        "tenant_id": None,
-        "is_active": True,
-        "is_superuser": True,
-        "is_verified": True
-    }
-    
-    user = await user_manager.create(system_owner_data)
-    return user
-
-
-@pytest.fixture
-async def tenant(db_session):
+async def test_tenant(test_session):
     """Create a test tenant."""
     tenant = Tenant(
-        name="Test Bedrijf",
-        kvk="87654321",
-        contact_email="admin@testbedrijf.nl",
+        name="Test Tenant",
+        kvk="12345678",
+        contact_email="test@tenant.com",
         is_active=True
     )
-    db_session.add(tenant)
-    await db_session.commit()
-    await db_session.refresh(tenant)
+    test_session.add(tenant)
+    await test_session.commit()
+    await test_session.refresh(tenant)
     return tenant
 
 
 @pytest.fixture
-async def tenant_admin(db_session, tenant):
-    """Create a tenant admin user."""
-    user_manager = await anext(get_user_manager(db_session))
-    
-    tenant_admin_data = {
-        "email": "admin@testbedrijf.nl",
-        "password": "Admin123!",
-        "first_name": "Admin",
-        "last_name": "Test",
-        "role": UserRole.ADMIN,
-        "tenant_id": tenant.id,
-        "is_active": True,
-        "is_superuser": False,
-        "is_verified": True
-    }
-    
-    user = await user_manager.create(tenant_admin_data)
-    return user
-
-
-@pytest.fixture
-async def tenant_user(db_session, tenant):
-    """Create a regular tenant user."""
-    user_manager = await anext(get_user_manager(db_session))
-    
-    tenant_user_data = {
-        "email": "user@testbedrijf.nl",
-        "password": "User123!",
-        "first_name": "User",
-        "last_name": "Test",
-        "role": UserRole.USER,
-        "tenant_id": tenant.id,
-        "is_active": True,
-        "is_superuser": False,
-        "is_verified": True
-    }
-    
-    user = await user_manager.create(tenant_user_data)
+async def test_user(test_session, test_tenant):
+    """Create a test user."""
+    user = User(
+        email="test@user.com",
+        first_name="Test",
+        last_name="User",
+        role="USER",
+        tenant_id=test_tenant.id,
+        is_active=True,
+        is_superuser=False,
+        is_verified=True
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
     return user

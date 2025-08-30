@@ -1,65 +1,86 @@
+"""
+Authentication and authorization dependencies.
+"""
 from typing import Optional
 from fastapi import Depends, HTTPException, status
+from fastapi_users import BaseUserManager, FastAPIUsers
+from fastapi_users.authentication import AuthenticationBackend
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.auth.auth import fastapi_users
 from app.database import get_db
 from app.models.user import User, UserRole
-from app.models.tenant import Tenant
-
-# FastAPI Users dependencies
-current_active_user = fastapi_users.current_user(active=True)
-current_superuser = fastapi_users.current_user(active=True, superuser=True)
+from app.auth.auth import fastapi_users, get_user_manager
 
 
-async def current_system_owner(
-    current_user: User = Depends(current_active_user)
+async def get_current_user(
+    user: User = Depends(fastapi_users.current_user())
 ) -> User:
-    """Dependency to ensure user is a system owner."""
-    if current_user.role != UserRole.SYSTEM_OWNER:
+    """Get the current authenticated user."""
+    return user
+
+
+async def get_current_active_user(
+    user: User = Depends(get_current_user)
+) -> User:
+    """Get the current active user."""
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user"
+        )
+    return user
+
+
+async def get_current_system_owner(
+    user: User = Depends(get_current_active_user)
+) -> User:
+    """Get the current user if they are a system owner."""
+    if user.role != UserRole.SYSTEM_OWNER:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="System owner access required"
         )
-    return current_user
+    return user
 
 
-async def current_tenant_admin(
-    current_user: User = Depends(current_active_user)
+async def get_current_admin_or_system_owner(
+    user: User = Depends(get_current_active_user)
 ) -> User:
-    """Dependency to ensure user is a tenant admin."""
-    if current_user.role not in [UserRole.ADMIN, UserRole.SYSTEM_OWNER]:
+    """Get the current user if they are an admin or system owner."""
+    if user.role not in [UserRole.ADMIN, UserRole.SYSTEM_OWNER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            detail="Admin or system owner access required"
         )
-    return current_user
+    return user
 
 
-async def get_user_tenant(
-    current_user: User = Depends(current_active_user),
+async def get_current_tenant_user(
+    user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_db)
-) -> Optional[Tenant]:
-    """Get the tenant for the current user."""
-    if current_user.role == UserRole.SYSTEM_OWNER:
-        return None
+) -> User:
+    """Get the current user if they belong to a tenant."""
+    if user.role == UserRole.SYSTEM_OWNER:
+        return user
     
-    if not current_user.tenant_id:
+    if not user.tenant_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User has no tenant assigned"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must belong to a tenant"
         )
+    return user
+
+
+async def get_current_tenant_admin(
+    user: User = Depends(get_current_tenant_user)
+) -> User:
+    """Get the current user if they are a tenant admin."""
+    if user.role == UserRole.SYSTEM_OWNER:
+        return user
     
-    result = await session.execute(
-        select(Tenant).where(Tenant.id == current_user.tenant_id)
-    )
-    tenant = result.scalar_one_or_none()
-    
-    if not tenant:
+    if user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant admin access required"
         )
-    
-    return tenant
+    return user

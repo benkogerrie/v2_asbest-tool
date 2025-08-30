@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.tenant import Tenant
 from app.schemas.user import UserCreate, UserRead, UserUpdate
-from app.auth.dependencies import current_system_owner, current_tenant_admin, get_user_tenant
+from app.auth.dependencies import get_current_system_owner, get_current_admin_or_system_owner, get_current_tenant_user
 from app.auth.auth import fastapi_users, auth_backend
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/", response_model=List[UserRead])
 async def list_users(
-    current_user: User = Depends(current_tenant_admin),
+    current_user: User = Depends(get_current_admin_or_system_owner),
     session: AsyncSession = Depends(get_db)
 ):
     """List users based on role and tenant."""
@@ -37,7 +37,7 @@ async def list_users(
 
 @router.get("/me", response_model=UserRead)
 async def get_current_user(
-    current_user: User = Depends(current_tenant_admin)
+    current_user: User = Depends(get_current_admin_or_system_owner)
 ):
     """Get current user information."""
     return current_user
@@ -46,7 +46,7 @@ async def get_current_user(
 @router.post("/", response_model=UserRead)
 async def create_user(
     user_data: UserCreate,
-    current_user: User = Depends(current_tenant_admin),
+    current_user: User = Depends(get_current_admin_or_system_owner),
     session: AsyncSession = Depends(get_db)
 ):
     """Create a new user."""
@@ -79,7 +79,7 @@ async def create_user(
 @router.get("/{user_id}", response_model=UserRead)
 async def get_user(
     user_id: str,
-    current_user: User = Depends(current_tenant_admin),
+    current_user: User = Depends(get_current_admin_or_system_owner),
     session: AsyncSession = Depends(get_db)
 ):
     """Get a specific user."""
@@ -113,7 +113,7 @@ async def get_user(
 async def update_user(
     user_id: str,
     user_data: UserUpdate,
-    current_user: User = Depends(current_tenant_admin),
+    current_user: User = Depends(get_current_admin_or_system_owner),
     session: AsyncSession = Depends(get_db)
 ):
     """Update a user."""
@@ -159,7 +159,7 @@ async def update_user(
 @router.delete("/{user_id}")
 async def delete_user(
     user_id: str,
-    current_user: User = Depends(current_tenant_admin),
+    current_user: User = Depends(get_current_admin_or_system_owner),
     session: AsyncSession = Depends(get_db)
 ):
     """Delete a user."""

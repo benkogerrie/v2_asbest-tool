@@ -6,15 +6,17 @@ Seed script voor het aanmaken van initiële data.
 """
 import asyncio
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
-from app.auth.auth import UserManager
-from app.auth.auth import get_user_db
+from passlib.context import CryptContext
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 async def create_system_owner(session: AsyncSession) -> User:
@@ -32,6 +34,7 @@ async def create_system_owner(session: AsyncSession) -> User:
     # Create system owner directly
     system_owner = User(
         email="system@asbest-tool.nl",
+        hashed_password=pwd_context.hash("SystemOwner123!"),
         first_name="System",
         last_name="Owner",
         role=UserRole.SYSTEM_OWNER,
@@ -42,14 +45,8 @@ async def create_system_owner(session: AsyncSession) -> User:
         created_at=datetime.utcnow()
     )
     
-    # Hash the password
-    from app.auth.auth import UserManager
-    user_manager = UserManager(None)  # We'll set the user_db later
-    system_owner.hashed_password = user_manager.password_helper.hash("SystemOwner123!")
-    
     session.add(system_owner)
     await session.commit()
-    
     print(f"✅ System owner aangemaakt: {system_owner.email}")
     return system_owner
 
@@ -89,12 +86,10 @@ async def create_tenant_and_admin(session: AsyncSession) -> tuple[Tenant, User]:
         tenant_admin = existing_admin
         print(f"✅ Tenant admin bestaat al: {tenant_admin.email}")
     else:
-        # Maak tenant admin aan
-        from app.auth.auth import UserManager
-        user_manager = UserManager(None)  # We'll set the user_db later
-        
+        # Create tenant admin directly
         tenant_admin = User(
             email="admin@bedrijfy.nl",
+            hashed_password=pwd_context.hash("Admin123!"),
             first_name="Admin",
             last_name="Bedrijf Y",
             role=UserRole.ADMIN,
@@ -104,9 +99,6 @@ async def create_tenant_and_admin(session: AsyncSession) -> tuple[Tenant, User]:
             is_verified=True,
             created_at=datetime.utcnow()
         )
-        
-        # Hash the password
-        tenant_admin.hashed_password = user_manager.password_helper.hash("Admin123!")
         
         session.add(tenant_admin)
         await session.commit()

@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.tenant import Tenant
 from app.auth.auth import get_user_manager
+from app.auth.dependencies import get_current_system_owner
 from app.schemas.user import UserCreate
 
 

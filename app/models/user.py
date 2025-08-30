@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Optional
 
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -32,6 +32,11 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     
     # Relationships
     tenant = relationship("Tenant", back_populates="users")
+    
+    # Table constraints - Email uniqueness scoped to tenant_id
+    __table_args__ = (
+        Index('ix_user_email_tenant', 'email', 'tenant_id', unique=True),
+    )
     
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"
