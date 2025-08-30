@@ -13,8 +13,8 @@ from app.models.user import User
 from app.models.tenant import Tenant
 
 
-# Test database URL - using PostgreSQL
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool"
+# Test database URL - using SQLite for isolation
+TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
 
 @pytest.fixture(scope="session")

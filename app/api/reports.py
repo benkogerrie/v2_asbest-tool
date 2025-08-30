@@ -2,10 +2,13 @@
 Reports API endpoints for file uploads.
 """
 import uuid
+import logging
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -41,6 +44,10 @@ def validate_file_upload(file: UploadFile) -> None:
     # Check content type
     if file.content_type not in ALLOWED_EXTENSIONS.values():
         raise UnsupportedFileTypeError(f"Invalid content type: {file.content_type}")
+    
+    # Check file size
+    if file.size and file.size > MAX_FILE_SIZE:
+        raise FileTooLargeError(f"File too large. Max size: {settings.max_upload_mb}MB")
 
 
 @router.post("/", response_model=ReportOut, status_code=201)
@@ -71,9 +78,10 @@ async def upload_report(
             )
         target_tenant_id = current_user.tenant_id
     
-    # Generate unique object key
+    # Generate unique object key following the specified convention
     file_ext = file.filename.lower().split('.')[-1]
-    object_key = f"reports/{target_tenant_id}/{uuid.uuid4()}.{file_ext}"
+    report_uuid = uuid.uuid4()
+    object_key = f"tenants/{target_tenant_id}/reports/{report_uuid}/source/{file.filename}"
     
     try:
         # Ensure bucket exists
@@ -90,6 +98,7 @@ async def upload_report(
         
         # Create report record
         report = Report(
+            id=report_uuid,  # Use the same UUID for the report
             tenant_id=target_tenant_id,
             uploaded_by=current_user.id,
             filename=file.filename,

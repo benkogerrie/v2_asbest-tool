@@ -57,18 +57,22 @@ class ObjectStorage:
         except ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
-                # Bucket doesn't exist, create it
-                try:
-                    self.client.create_bucket(
-                        Bucket=self.bucket,
-                        CreateBucketConfiguration={
-                            'LocationConstraint': self.region
-                        } if self.region != 'us-east-1' else {}
-                    )
-                    logger.info(f"Created bucket: {self.bucket}")
-                    return True
-                except ClientError as create_error:
-                    logger.error(f"Failed to create bucket {self.bucket}: {create_error}")
+                # Bucket doesn't exist, create it only in development
+                if settings.debug:
+                    try:
+                        self.client.create_bucket(
+                            Bucket=self.bucket,
+                            CreateBucketConfiguration={
+                                'LocationConstraint': self.region
+                            } if self.region != 'us-east-1' else {}
+                        )
+                        logger.info(f"Created bucket: {self.bucket}")
+                        return True
+                    except ClientError as create_error:
+                        logger.error(f"Failed to create bucket {self.bucket}: {create_error}")
+                        return False
+                else:
+                    logger.error(f"Bucket {self.bucket} does not exist and auto-creation is disabled in production")
                     return False
             else:
                 logger.error(f"Error checking bucket {self.bucket}: {e}")
