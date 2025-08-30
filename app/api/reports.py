@@ -210,15 +210,27 @@ async def list_reports(
             )
     
     service = ReportService(session)
-    reports, total = await service.get_reports_with_filters(
-        current_user=current_user,
-        page=page,
-        page_size=page_size,
-        status=status,
-        tenant_id=tenant_id,
-        q=q,
-        sort=sort
-    )
+    try:
+        reports, total = await service.get_reports_with_filters(
+            current_user=current_user,
+            page=page,
+            page_size=page_size,
+            status=status,
+            tenant_id=tenant_id,
+            q=q,
+            sort=sort
+        )
+    except ValueError as e:
+        if "Tenant not found" in str(e):
+            raise HTTPException(
+                status_code=404,
+                detail="Tenant not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail=str(e)
+            )
     
     return ReportListResponse(
         items=reports,

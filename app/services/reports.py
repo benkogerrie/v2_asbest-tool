@@ -19,6 +19,13 @@ class ReportService:
     def __init__(self, session: AsyncSession):
         self.session = session
     
+    async def _validate_tenant_exists(self, tenant_id: uuid.UUID) -> bool:
+        """Validate that a tenant exists."""
+        result = await self.session.execute(
+            select(func.count(Tenant.id)).where(Tenant.id == tenant_id)
+        )
+        return result.scalar() > 0
+    
     async def get_reports_with_filters(
         self,
         current_user: User,
@@ -48,12 +55,22 @@ class ReportService:
         page_size = min(page_size, 100)
         page_size = max(page_size, 1)
         
-        # Build base query
-        query = select(Report)
+        # Validate tenant_id if provided for SYSTEM_OWNER
+        if tenant_id and current_user.role == UserRole.SYSTEM_OWNER:
+            try:
+                tenant_uuid = uuid.UUID(tenant_id)
+                if not await self._validate_tenant_exists(tenant_uuid):
+                    raise ValueError("Tenant not found")
+            except ValueError as e:
+                raise ValueError(f"Invalid tenant_id: {str(e)}")
         
-        # Add tenant join for SYSTEM_OWNER to get tenant_name
+        # Build base query with proper eager loading
         if current_user.role == UserRole.SYSTEM_OWNER:
-            query = query.outerjoin(Tenant, Report.tenant_id == Tenant.id)
+            # SYSTEM_OWNER needs tenant information for tenant_name
+            query = select(Report).options(selectinload(Report.tenant))
+        else:
+            # Regular users don't need tenant info
+            query = select(Report)
         
         # Apply RBAC filters
         if current_user.role == UserRole.SYSTEM_OWNER:
@@ -78,8 +95,27 @@ class ReportService:
         if q:
             query = query.where(Report.filename.ilike(f"%{q}%"))
         
-        # Get total count with same filters
-        count_query = select(func.count()).select_from(query.subquery())
+        # Get total count with same filters (more efficient than subquery)
+        count_query = select(func.count(Report.id))
+        
+        # Apply same filters to count query
+        if current_user.role == UserRole.SYSTEM_OWNER:
+            if tenant_id:
+                count_query = count_query.where(Report.tenant_id == uuid.UUID(tenant_id))
+        else:
+            count_query = count_query.where(
+                and_(
+                    Report.tenant_id == current_user.tenant_id,
+                    Report.status != ReportStatus.DELETED_SOFT
+                )
+            )
+        
+        if status:
+            count_query = count_query.where(Report.status == status)
+        
+        if q:
+            count_query = count_query.where(Report.filename.ilike(f"%{q}%"))
+        
         total_result = await self.session.execute(count_query)
         total = total_result.scalar()
         
@@ -101,21 +137,19 @@ class ReportService:
         result = await self.session.execute(query)
         reports = result.scalars().all()
         
-        # Convert to DTOs
+        # Convert to DTOs (no N+1 queries due to eager loading)
         report_items = []
         for report in reports:
             tenant_name = None
-            if current_user.role == UserRole.SYSTEM_OWNER:
-                # For SYSTEM_OWNER, we need to check if tenant was loaded
-                if hasattr(report, 'tenant') and report.tenant is not None:
-                    tenant_name = report.tenant.name
+            if current_user.role == UserRole.SYSTEM_OWNER and report.tenant:
+                tenant_name = report.tenant.name
             
             report_item = ReportListItem(
                 id=str(report.id),
                 filename=report.filename,
                 status=report.status,
                 finding_count=report.finding_count,
-                score=int(report.score) if report.score else None,
+                score=report.score,  # Keep as float, no conversion needed
                 uploaded_at=report.uploaded_at,
                 tenant_name=tenant_name
             )
@@ -138,7 +172,7 @@ class ReportService:
         Returns:
             ReportDetail or None if not found/accessible
         """
-        # Build query with joins for tenant and user information
+        # Build query with proper eager loading
         query = select(Report).options(
             selectinload(Report.tenant),
             selectinload(Report.uploaded_by_user)
@@ -176,14 +210,14 @@ class ReportService:
         report_detail = ReportDetail(
             id=str(report.id),
             filename=report.filename,
-            summary="Nog geen conclusie beschikbaar",  # Placeholder until Slice 4
+            summary="No conclusion available yet",  # Internationalized placeholder
             findings=[],  # Placeholder until Slice 4
             uploaded_at=report.uploaded_at,
             uploaded_by_name=uploaded_by_name,
             tenant_name=tenant_name,
             status=report.status,
             finding_count=report.finding_count,
-            score=int(report.score) if report.score else None
+            score=report.score  # Keep as float, no conversion needed
         )
         
         return report_detail

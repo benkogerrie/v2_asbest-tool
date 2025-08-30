@@ -90,7 +90,7 @@ class ReportListItem(BaseModel):
     filename: str = Field(..., description="Original filename")
     status: ReportStatus = Field(..., description="Processing status")
     finding_count: int = Field(..., description="Number of findings detected")
-    score: Optional[int] = Field(None, description="Risk score (0-100)")
+    score: Optional[float] = Field(None, description="Risk score (0-100)")
     uploaded_at: datetime = Field(..., description="Upload timestamp")
     tenant_name: Optional[str] = Field(None, description="Tenant name (only for SYSTEM_OWNER)")
     
@@ -117,7 +117,7 @@ class ReportDetail(BaseModel):
     tenant_name: Optional[str] = Field(None, description="Tenant name (only for SYSTEM_OWNER)")
     status: ReportStatus = Field(..., description="Processing status")
     finding_count: int = Field(..., description="Number of findings detected")
-    score: Optional[int] = Field(None, description="Risk score (0-100)")
+    score: Optional[float] = Field(None, description="Risk score (0-100)")
     
     class Config:
         from_attributes = True
