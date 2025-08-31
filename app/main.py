@@ -3,10 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
 from app.config import settings
-from app.api import health, tenants, users, reports
-from app.auth.auth import fastapi_users, auth_backend
-from app.models.user import User
-from app.schemas.user import UserRead, UserCreate
+from app.api import health
 from app.exceptions import (
     http_exception_handler,
     validation_exception_handler,
@@ -40,17 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include only health router for now
 app.include_router(health.router)
-app.include_router(tenants.router)
-app.include_router(users.router)
-app.include_router(reports.router)
-
-# Include FastAPI Users routes
-app.include_router(fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"])
-app.include_router(fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"])
-app.include_router(fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"])
-app.include_router(fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"])
 
 # Add exception handlers
 app.add_exception_handler(HTTPException, http_exception_handler)
@@ -64,7 +52,16 @@ async def root():
     return {
         "message": "Welcome to Asbest Tool API",
         "version": "1.0.0",
-        "docs": "/docs"
+        "docs": "/docs",
+        "status": "starting up - database connection pending"
+    }
+
+@app.get("/auth/jwt/login")
+async def login_placeholder():
+    """Placeholder login endpoint."""
+    return {
+        "message": "Login endpoint placeholder - database connection required",
+        "status": "service starting up"
     }
 
 
