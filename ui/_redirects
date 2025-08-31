@@ -1,0 +1,10 @@
+# Force Vercel to recognize this as a new deployment
+# This file ensures Vercel picks up the latest changes
+
+# Redirect root to tenant-admin
+/ /tenant-admin/index.html 200
+
+# Redirect specific routes
+/tenant-admin /tenant-admin/index.html 200
+/user /user/index.html 200
+/system-owner /system-owner/index.html 200

@@ -1,0 +1,37 @@
+{
+  "buildCommand": "",
+  "outputDirectory": "",
+  "installCommand": "",
+  "framework": null,
+  "version": 3,
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/tenant-admin/index.html"
+    },
+    {
+      "src": "/tenant-admin",
+      "dest": "/tenant-admin/index.html"
+    },
+    {
+      "src": "/tenant-admin/",
+      "dest": "/tenant-admin/index.html"
+    },
+    {
+      "src": "/user",
+      "dest": "/user/index.html"
+    },
+    {
+      "src": "/user/",
+      "dest": "/user/index.html"
+    },
+    {
+      "src": "/system-owner",
+      "dest": "/system-owner/index.html"
+    },
+    {
+      "src": "/system-owner/",
+      "dest": "/system-owner/index.html"
+    }
+  ]
+}
