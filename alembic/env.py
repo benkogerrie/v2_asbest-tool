@@ -9,6 +9,7 @@ from alembic import context
 
 from app.config import settings
 from app.database import Base
+# Import models to register them with Base.metadata
 from app.models import Tenant, User
 
 # this is the Alembic Config object, which provides
