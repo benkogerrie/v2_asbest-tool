@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.database import AsyncSessionLocal
+from app.database import get_async_session_local
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 from app.models.report import Report, ReportAuditLog
@@ -112,7 +112,7 @@ async def main():
     """Hoofdfunctie voor het seeden van data."""
     print("🌱 Starten met seeden van initiële data...")
     
-    async with AsyncSessionLocal() as session:
+    async with get_async_session_local() as session:
         try:
             # Maak system owner aan
             system_owner = await create_system_owner(session)
