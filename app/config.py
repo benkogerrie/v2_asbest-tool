@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     job_max_retries: int = 3
     
     # CORS Configuration
-    cors_origins: Optional[str] = None
+    cors_origins: Optional[str] = "https://v21-asbest-tool-nutv-git-main-robbies-projects-f29493a5.vercel.app,http://localhost:3000,http://localhost:8080"
     
     class Config:
         env_file = ".env"
