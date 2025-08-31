@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ from app.auth.dependencies import get_current_active_user, get_current_admin_or_
 from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
 from app.config import settings
+from app.queue.conn import reports_queue
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -155,6 +157,18 @@ async def upload_report(
         session.add(audit_log)
         await session.commit()
         
+        # Enqueue processing job
+        try:
+            reports_queue().enqueue(
+                "app.queue.jobs.process_report",
+                report_id=str(report.id),
+                retry=settings.job_max_retries
+            )
+            logger.info(f"Processing job enqueued for report {report.id}")
+        except Exception as e:
+            logger.error(f"Failed to enqueue processing job for report {report.id}: {e}")
+            # Don't fail the upload if job enqueue fails
+        
         logger.info(f"Report uploaded successfully: {report.id} by user {current_user.id}")
         
         return ReportOut.from_orm(report)
@@ -268,3 +282,114 @@ async def get_report_detail(
         )
     
     return report_detail
+
+
+@router.get("/{report_id}/source")
+async def download_source(
+    report_id: str,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """Download the original source file."""
+    from app.services.reports import ReportService
+    
+    # Validate report_id format
+    try:
+        uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
+    
+    service = ReportService(session)
+    report = await service.get_report_for_download(report_id, current_user)
+    
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
+    
+    # Get file from storage
+    try:
+        file_stream = storage.download_fileobj(report.source_object_key)
+        if not file_stream:
+            raise HTTPException(
+                status_code=404,
+                detail="Source file not found in storage"
+            )
+        
+        # Determine content type based on file extension
+        file_ext = report.filename.lower().split('.')[-1] if '.' in report.filename else ''
+        content_type = ALLOWED_EXTENSIONS.get(f'.{file_ext}', 'application/octet-stream')
+        
+        return StreamingResponse(
+            file_stream,
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={report.filename}"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error downloading source file for report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to download source file"
+        )
+
+
+@router.get("/{report_id}/conclusion")
+async def download_conclusion(
+    report_id: str,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """Download the conclusion PDF file."""
+    from app.services.reports import ReportService
+    
+    # Validate report_id format
+    try:
+        uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
+    
+    service = ReportService(session)
+    report = await service.get_report_for_download(report_id, current_user)
+    
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
+    
+    # Check if conclusion exists
+    if not report.conclusion_object_key:
+        raise HTTPException(
+            status_code=404,
+            detail="Conclusion not yet available"
+        )
+    
+    # Get file from storage
+    try:
+        file_stream = storage.download_fileobj(report.conclusion_object_key)
+        if not file_stream:
+            raise HTTPException(
+                status_code=404,
+                detail="Conclusion file not found in storage"
+            )
+        
+        return StreamingResponse(
+            file_stream,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=conclusie_{report.filename}.pdf"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error downloading conclusion file for report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to download conclusion file"
+        )

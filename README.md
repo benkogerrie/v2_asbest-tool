@@ -6,7 +6,8 @@ Een FastAPI-gebaseerde API voor het uploaden en analyseren van asbest rapporten.
 
 - **Slice 1**: Basis authenticatie en autorisatie
 - **Slice 2**: File upload functionaliteit
-- **Slice 3**: Rapportenlijst en rapportdetail API (huidige implementatie)
+- **Slice 3**: Rapportenlijst en rapportdetail API
+- **Slice 4**: Verwerkingspipeline (Queue + Worker, dummy AI + PDF generatie) ✅
 
 ## API Endpoints
 
@@ -135,15 +136,52 @@ curl -X GET "http://localhost:8000/reports/794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8"
 {
   "id": "794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8",
   "filename": "project-123_Kade-12-Amsterdam.pdf",
-  "summary": "Nog geen conclusie beschikbaar",
-  "findings": [],
+  "summary": "Rapport is grotendeels compleet; aanvulling nodig voor maatregel 2A (dummy).",
+  "findings": [
+    {
+      "code": "R001",
+      "severity": "MAJOR",
+      "title": "Projectadres onvolledig",
+      "detail_text": "Postcode ontbreekt (dummy)"
+    },
+    {
+      "code": "R012",
+      "severity": "CRITICAL", 
+      "title": "Maatregelen onduidelijk",
+      "detail_text": "2A niet uitgewerkt (dummy)"
+    }
+  ],
   "uploaded_at": "2025-01-27T10:30:00Z",
   "uploaded_by_name": "S. Jansen",
   "tenant_name": "Bedrijf Y",
-  "status": "PROCESSING",
-  "finding_count": 0,
-  "score": null
+  "status": "DONE",
+  "finding_count": 2,
+  "score": 89
 }
+```
+
+### Download Endpoints (Slice 4)
+
+#### GET /reports/{id}/source
+
+Download het originele bronbestand.
+
+#### GET /reports/{id}/conclusion
+
+Download de conclusie PDF (alleen beschikbaar na verwerking).
+
+**Voorbeelden:**
+
+```bash
+# Download bronbestand
+curl -X GET "http://localhost:8000/reports/794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8/source" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  --output rapport.pdf
+
+# Download conclusie PDF
+curl -X GET "http://localhost:8000/reports/794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8/conclusion" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  --output conclusie.pdf
 ```
 
 ## RBAC (Role-Based Access Control)
@@ -173,6 +211,8 @@ curl -X GET "http://localhost:8000/reports/794301cb-ed5d-4bd9-bdb2-8a5e93bfb6c8"
 
 ## Setup
 
+### Lokaal Development
+
 1. Installeer dependencies:
 ```bash
 pip install -r requirements.txt
@@ -189,10 +229,34 @@ cp env.sample .env
 alembic upgrade head
 ```
 
-4. Start de applicatie:
+4. Start alle services met Docker Compose:
 ```bash
-uvicorn app.main:app --reload
+docker-compose up
 ```
+
+Dit start:
+- API server (port 8000)
+- PostgreSQL database (port 5432)
+- Redis (port 6379)
+- MinIO storage (port 9000)
+- Worker service voor verwerking
+
+### Railway Deployment
+
+Voor Railway deployment:
+
+1. Voeg een aparte worker service toe met dezelfde environment variables als de API
+2. Worker service command: `python -m worker.run`
+3. Zorg dat Redis service beschikbaar is
+
+### Worker Monitoring
+
+De worker verwerkt automatisch geüploade rapporten:
+
+- Status: PROCESSING → DONE/FAILED
+- Genereert dummy AI analyse (score: 89, 2 bevindingen)
+- Maakt conclusie PDF aan
+- Audit logs: PROCESS_START, PROCESS_DONE, PROCESS_FAIL
 
 ## Testing
 
@@ -203,6 +267,5 @@ pytest tests/ -v
 
 ## Volgende Slices
 
-- **Slice 4**: AI processing en analyse
-- **Slice 5**: Conclusies en bevindingen
+- **Slice 5**: Echte AI/RAG integratie
 - **Slice 6**: UI integratie

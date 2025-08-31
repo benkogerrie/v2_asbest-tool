@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # Upload limits
     max_upload_mb: int = 50
     
+    # Redis Configuration
+    redis_url: str = "redis://localhost:6379/0"
+    worker_concurrency: int = 1
+    job_timeout_seconds: int = 120
+    job_max_retries: int = 3
+    
     # CORS Configuration
     cors_origins: Optional[str] = None
     

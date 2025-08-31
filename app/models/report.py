@@ -6,8 +6,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SQLEnum, Float
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SQLEnum, Float, Text
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -40,6 +40,8 @@ class Report(Base):
     status = Column(SQLEnum(ReportStatus), default=ReportStatus.PROCESSING, nullable=False)
     score = Column(Float, nullable=True)
     finding_count = Column(Integer, default=0, nullable=False)
+    summary = Column(Text, nullable=True)
+    findings_json = Column(JSON, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     source_object_key = Column(String, nullable=False)
     conclusion_object_key = Column(String, nullable=True)

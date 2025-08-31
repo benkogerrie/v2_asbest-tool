@@ -107,6 +107,26 @@ class ObjectStorage:
             logger.error(f"Unexpected error uploading {object_key}: {e}")
             return False
     
+    def download_fileobj(self, object_key: str) -> Optional[BinaryIO]:
+        """Download a file object from storage."""
+        try:
+            from io import BytesIO
+            fileobj = BytesIO()
+            self.client.download_fileobj(
+                self.bucket,
+                object_key,
+                fileobj
+            )
+            fileobj.seek(0)  # Reset to beginning
+            logger.info(f"Successfully downloaded {object_key} from {self.bucket}")
+            return fileobj
+        except ClientError as e:
+            logger.error(f"Failed to download {object_key}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error downloading {object_key}: {e}")
+            return None
+    
     def presigned_get_url(self, object_key: str, expires: int = 3600) -> Optional[str]:
         """Generate a presigned URL for downloading an object."""
         try:

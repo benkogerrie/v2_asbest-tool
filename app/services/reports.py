@@ -206,18 +206,60 @@ class ReportService:
         if current_user.role == UserRole.SYSTEM_OWNER and report.tenant:
             tenant_name = report.tenant.name
         
-        # Create ReportDetail with placeholders for summary and findings
+        # Convert findings_json to FindingItem objects if available
+        findings = []
+        if report.findings_json:
+            from app.schemas.report import FindingItem
+            for finding_data in report.findings_json:
+                findings.append(FindingItem(**finding_data))
+        
+        # Create ReportDetail with actual data or placeholders
         report_detail = ReportDetail(
             id=str(report.id),
             filename=report.filename,
-            summary="No conclusion available yet",  # Internationalized placeholder
-            findings=[],  # Placeholder until Slice 4
+            summary=report.summary or "No conclusion available yet",
+            findings=findings,
             uploaded_at=report.uploaded_at,
             uploaded_by_name=uploaded_by_name,
             tenant_name=tenant_name,
             status=report.status,
             finding_count=report.finding_count,
-            score=report.score  # Keep as float, no conversion needed
+            score=report.score
         )
         
         return report_detail
+    
+    async def get_report_for_download(
+        self,
+        report_id: str,
+        current_user: User
+    ) -> Optional[Report]:
+        """
+        Get report for download with RBAC checks.
+        
+        Args:
+            report_id: Report ID
+            current_user: Current authenticated user
+            
+        Returns:
+            Report or None if not found/accessible
+        """
+        query = select(Report).where(Report.id == uuid.UUID(report_id))
+        
+        result = await self.session.execute(query)
+        report = result.scalar_one_or_none()
+        
+        if not report:
+            return None
+        
+        # Check RBAC access
+        if current_user.role == UserRole.SYSTEM_OWNER:
+            # SYSTEM_OWNER can download all reports
+            return report
+        else:
+            # USER/ADMIN can only download reports from their tenant, excluding soft-deleted
+            if (report.tenant_id == current_user.tenant_id and 
+                report.status != ReportStatus.DELETED_SOFT):
+                return report
+        
+        return None
