@@ -129,8 +129,17 @@
     document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
     const link = document.querySelector(`.nav a[data-link="${view}"]`);
     if(link) link.classList.add('active');
-    const crumb = document.getElementById('crumb');
-    if(crumb) crumb.textContent = `${CURRENT_USER.full} / User / ${view}`;
+    document.getElementById('crumb').textContent = `${CURRENT_USER.full} / Tenant Admin / ${view}`;
+    
+    // Load data based on view
+    switch(view) {
+      case 'Rapporten':
+        loadReports();
+        break;
+      case 'Admin':
+        loadUsers();
+        break;
+    }
   }
 
   function startUpload(success=true){
