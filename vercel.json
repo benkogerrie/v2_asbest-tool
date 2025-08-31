@@ -4,7 +4,6 @@
   "installCommand": "",
   "framework": null,
   "version": 4,
-  "functions": {},
   "routes": [
     {
       "src": "/",
