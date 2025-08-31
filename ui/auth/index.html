@@ -116,7 +116,7 @@
 <script>
   // ====== CONFIG ======
   const BASE_URL = 'https://v2asbest-tool-production.up.railway.app'; // API base
-  const APP_URL  = 'https://asbest-tool-ui.vercel.app';                    // UI (app) bestemming na login
+  const APP_URL  = window.location.origin;                    // UI (app) bestemming na login
   const STORAGE_TOKEN_KEY = 'asbest_jwt';
 
   function switchTab(which){
