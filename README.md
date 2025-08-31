@@ -245,9 +245,25 @@ Dit start:
 
 Voor Railway deployment:
 
-1. Voeg een aparte worker service toe met dezelfde environment variables als de API
-2. Worker service command: `python -m worker.run`
-3. Zorg dat Redis service beschikbaar is
+1. **API Service**: Deploy de main branch als API service
+   - Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Environment variables: zie `env.sample`
+
+2. **Worker Service**: Maak een nieuwe service aan voor de worker
+   - Source: zelfde repository, zelfde branch
+   - Command: `python -m worker.run`
+   - Environment variables: zelfde als API service
+   - Gebruik `railway.json` voor configuratie
+
+3. **Redis Service**: Voeg Redis toe als externe service
+   - Railway Redis plugin of externe Redis provider
+   - Zorg dat `REDIS_URL` correct is geconfigureerd
+
+4. **Database**: PostgreSQL service (al aanwezig)
+   - Zorg dat `DATABASE_URL` correct is geconfigureerd
+
+5. **Storage**: S3/MinIO service
+   - Configureer S3 credentials of gebruik Railway S3 plugin
 
 ### Worker Monitoring
 
