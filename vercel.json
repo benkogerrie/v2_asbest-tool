@@ -3,7 +3,8 @@
   "outputDirectory": "ui",
   "installCommand": "",
   "framework": null,
-  "version": 2,
+  "version": 4,
+  "functions": {},
   "routes": [
     {
       "src": "/",
