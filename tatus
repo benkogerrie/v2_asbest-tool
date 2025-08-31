@@ -2,3 +2,8 @@
 [33m44bec5d[m Fix audit issues - Complete Slice 1 implementation
 [33mdc8df41[m Initial commit: V2 Asbest Tool API - Complete Slice 1 implementation
 [33m1ec8646[m Initial commit: V2 Asbest Tool API - Complete Slice 1 implementation
+[33m4c3f751[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Update UI to use Railway API URL
+[33mb2f2b46[m Add boto3 dependency for S3 storage
+[33m17fd26f[m Add psycopg dependency for Railway deployment
+[33madaf353[m Fix alembic.ini to use Railway database URL
+[33m6f42788[m Add debug logging to startup script
