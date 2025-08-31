@@ -21,9 +21,20 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+def get_cors_origins():
+    """Get CORS origins with fallback to wildcard."""
+    if not settings.cors_origins:
+        return ["*"]
+    
+    origins = [origin.strip() for origin in settings.cors_origins.split(",")]
+    # If "*" is in the list, return wildcard
+    if "*" in origins:
+        return ["*"]
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins.split(",") if settings.cors_origins else ["*"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
