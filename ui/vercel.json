@@ -6,7 +6,11 @@
   "routes": [
     {
       "src": "/",
-      "dest": "/tenant-admin/index.html"
+      "dest": "/auth/index.html"
+    },
+    {
+      "src": "/auth",
+      "dest": "/auth/index.html"
     },
     {
       "src": "/tenant-admin",

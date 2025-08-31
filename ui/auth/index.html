@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Asbest Tool — Inloggen / Registreren</title>
+<style>
+  :root{--bg:#0f1320;--panel:#151a2c;--panel2:#101528;--muted:#8a93a2;--text:#e8ecf6;--border:#262c45;--accent:#6ea8fe;}
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+  body{margin:0;background:#0f1320;color:var(--text);display:flex;min-height:100vh;align-items:center;justify-content:center}
+  a{color:var(--accent);text-decoration:none;cursor:pointer}
+  .wrap{width:100%;max-width:720px;padding:20px}
+  .card{background:#151a2c;border:1px solid var(--border);border-radius:14px;padding:18px}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .logo{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#6ea8fe,#8f7afe)}
+  h1{margin:0;font-size:20px}
+  p.muted{color:var(--muted);font-size:12px;margin:6px 0 14px}
+  .tabs{display:flex;gap:8px;margin:8px 0 16px}
+  .tab{flex:1;text-align:center;padding:10px;border:1px solid var(--border);border-radius:10px;background:#121733;cursor:pointer}
+  .tab.active{background:#1b2240}
+  label{display:block;margin:6px 0 6px;color:var(--muted);font-size:12px}
+  input[type="text"],input[type="email"],input[type="password"]{
+    width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);
+    background:#0d1224;color:#e9edfa;outline:none;
+  }
+  input:focus{border-color:#6ea8fe;box-shadow:0 0 0 3px rgba(110,168,254,.15)}
+  .btn{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#1a2140;color:#fff;cursor:pointer;font-size:14px}
+  .btn.primary{background:#2b63ff;border-color:#2b63ff}
+  .row{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-top:12px}
+  .col{flex:1}
+  .error{background:#2b1414;border:1px solid #6a2a2a;color:#ffb1b1;border-radius:10px;padding:10px;font-size:13px;display:none;margin-top:10px}
+  .ok{background:#15251a;border:1px solid #224a2f;color:#b7f7c9;border-radius:10px;padding:10px;font-size:13px;display:none;margin-top:10px}
+  .foot{margin-top:14px;text-align:center;color:var(--muted);font-size:12px}
+  .section{background:#101528;border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:12px}
+  .section h3{margin:0 0 8px;font-size:16px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Asbest Tool</h1>
+          <p class="muted">Log in of registreer een nieuwe tenant (alleen Tenant Admins)</p>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" id="tab-login" onclick="switchTab('login')">Inloggen</div>
+        <div class="tab" id="tab-register" onclick="switchTab('register')">Registreren (Tenant Admin)</div>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="pane-login">
+        <label>Email</label>
+        <input id="login-email" type="email" placeholder="naam@bedrijf.nl" autocomplete="username"/>
+        <label>Wachtwoord</label>
+        <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+        <div class="row" style="margin-top:16px">
+          <button class="btn" type="button" onclick="quickFill('owner')">Vul System Owner</button>
+          <button class="btn" type="button" onclick="quickFill('admin')">Vul Tenant Admin</button>
+          <button class="btn primary" type="button" onclick="doLogin()">Inloggen</button>
+        </div>
+        <div id="login-error" class="error"></div>
+      </div>
+
+      <!-- REGISTER (TENANT + TENANT ADMIN) -->
+      <div id="pane-register" style="display:none">
+        <div class="section">
+          <h3>Tenantgegevens</h3>
+          <label>Bedrijfsnaam</label>
+          <input id="tenant-name" type="text" placeholder="Bedrijf Y"/>
+          <label>KvK-nummer</label>
+          <input id="tenant-kvk" type="text" placeholder="12345678"/>
+          <label>Adres</label>
+          <input id="tenant-address" type="text" placeholder="Straat 1, 1234 AB Plaats"/>
+          <label>Contact e-mail</label>
+          <input id="tenant-contact-email" type="email" placeholder="info@bedrijf-y.nl"/>
+        </div>
+
+        <div class="section">
+          <h3>Tenant Admin (jij)</h3>
+          <div class="row">
+            <div class="col">
+              <label>Voornaam</label>
+              <input id="admin-first" type="text" placeholder="Voornaam"/>
+            </div>
+            <div class="col">
+              <label>Achternaam</label>
+              <input id="admin-last" type="text" placeholder="Achternaam"/>
+            </div>
+          </div>
+          <label>E-mail</label>
+          <input id="admin-email" type="email" placeholder="naam@bedrijf.nl"/>
+          <label>Wachtwoord</label>
+          <input id="admin-pass" type="password" placeholder="Min. 8 tekens"/>
+        </div>
+
+        <p class="muted" style="margin-top:8px">
+          Alleen een <strong>Tenant Admin</strong> kan registreren. Na registratie kun je in de app <em>gebruikers uitnodigen</em> voor jouw tenant.
+        </p>
+
+        <div class="row">
+          <span></span>
+          <button class="btn primary" type="button" onclick="doRegister()">Tenant registreren</button>
+        </div>
+        <div id="reg-error" class="error"></div>
+        <div id="reg-ok" class="ok"></div>
+      </div>
+
+      <div class="foot">© 2025 Asbest Tool</div>
+    </div>
+  </div>
+
+<script>
+  // ====== CONFIG ======
+  const BASE_URL = 'https://asbest-tool-staging-production.up.railway.app'; // API base
+  const APP_URL  = 'https://asbest-tool-ui.vercel.app';                    // UI (app) bestemming na login
+  const STORAGE_TOKEN_KEY = 'asbest_jwt';
+
+  function switchTab(which){
+    document.getElementById('tab-login').classList.toggle('active', which==='login');
+    document.getElementById('tab-register').classList.toggle('active', which==='register');
+    document.getElementById('pane-login').style.display   = which==='login'?'block':'none';
+    document.getElementById('pane-register').style.display= which==='register'?'block':'none';
+    clearMsgs();
+  }
+  function clearMsgs(){
+    ['login-error','reg-error','reg-ok'].forEach(id=>{
+      const el=document.getElementById(id); if(el){ el.style.display='none'; el.textContent=''; }
+    });
+  }
+  function showErr(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+  function showOk(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+
+  async function doLogin(){
+    clearMsgs();
+    const email = document.getElementById('login-email').value.trim();
+    const pass  = document.getElementById('login-pass').value;
+    if(!email || !pass){ return showErr('login-error','Vul je e-mail en wachtwoord in.'); }
+    try{
+      const body = new URLSearchParams({ username: email, password: pass });
+      const res = await fetch(`${BASE_URL}/auth/jwt/login`, {
+        method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body
+      });
+      if(!res.ok){
+        const t = await res.text();
+        return showErr('login-error', `Inloggen mislukt: ${t || res.status}`);
+      }
+      const data = await res.json();
+      if(!data?.access_token) return showErr('login-error','Geen token ontvangen.');
+      localStorage.setItem(STORAGE_TOKEN_KEY, data.access_token);
+      window.location.href = APP_URL;
+    }catch(e){ showErr('login-error', 'Netwerkfout: ' + e.message); }
+  }
+
+  async function doRegister(){
+    clearMsgs();
+    // Tenant
+    const tName   = document.getElementById('tenant-name').value.trim();
+    const tKvk    = document.getElementById('tenant-kvk').value.trim();
+    const tAddr   = document.getElementById('tenant-address').value.trim();
+    const tCmail  = document.getElementById('tenant-contact-email').value.trim();
+    // Admin
+    const aFirst  = document.getElementById('admin-first').value.trim();
+    const aLast   = document.getElementById('admin-last').value.trim();
+    const aEmail  = document.getElementById('admin-email').value.trim();
+    const aPass   = document.getElementById('admin-pass').value;
+
+    if(!tName || !tKvk || !tCmail || !aFirst || !aLast || !aEmail || !aPass){
+      return showErr('reg-error','Vul alle verplichte velden in.');
+    }
+
+    // Voorbeeld endpoint: /tenants/register-admin
+    // Pas aan naar jouw backend-route zodra die er is (Slice 1+).
+    const payload = {
+      tenant: {
+        name: tName,
+        kvk: tKvk,
+        address: tAddr,
+        contact_email: tCmail
+      },
+      admin: {
+        first_name: aFirst,
+        last_name: aLast,
+        email: aEmail,
+        password: aPass
+      }
+    };
+
+    try{
+      const res = await fetch(`${BASE_URL}/tenants/register-admin`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+
+      if(res.status===404 || res.status===405){
+        return showErr('reg-error','Registratie staat nog uit. Vraag een uitnodiging aan bij de systeembeheerder.');
+      }
+
+      const data = await res.json().catch(()=> ({}));
+      if(!res.ok){
+        const msg = data?.detail || data?.message || res.status;
+        return showErr('reg-error','Registreren mislukt: ' + msg);
+      }
+
+      // Succes
+      showOk('reg-ok','Tenant aangemaakt en Admin geregistreerd. Je kunt nu inloggen.');
+      // Voorvullen login
+      switchTab('login');
+      document.getElementById('login-email').value = aEmail;
+
+    }catch(e){
+      showErr('reg-error','Netwerkfout: ' + e.message);
+    }
+  }
+
+  function quickFill(which){
+    if(which==='owner'){
+      document.getElementById('login-email').value = 'system@asbest-tool.nl';
+      document.getElementById('login-pass').value  = 'SystemOwner123!';
+    }else{
+      document.getElementById('login-email').value = 'admin@bedrijfy.nl';
+      document.getElementById('login-pass').value  = 'Admin123!';
+    }
+  }
+</script>
+</body>
+</html>

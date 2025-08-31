@@ -65,9 +65,12 @@
   // API Helper Functions
   async function apiCall(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    const token = localStorage.getItem('asbest_jwt');
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers
       },
       ...options
@@ -75,6 +78,12 @@
     
     try {
       const response = await fetch(url, config);
+      if (response.status === 401) {
+        // Unauthorized - redirect to login
+        localStorage.removeItem('asbest_jwt');
+        window.location.href = '/auth';
+        return;
+      }
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -138,15 +147,37 @@
     const id=setInterval(()=>{ w+=12; bar.style.width=w+'%'; if(w>=100){ clearInterval(id); if(success){ alert('Upload succesvol — rapport aangemaakt (#RPT-2025-9001)'); show('Rapporten'); } else { document.getElementById('upload-error').style.display='block'; } } },200);
   }
 
+  // Logout functionaliteit
+  function logout() {
+    localStorage.removeItem('asbest_jwt');
+    window.location.href = '/auth';
+  }
+
   function confirmDelete(){ if(confirm('Weet je zeker dat je dit rapport voor tenants wilt verbergen? (Soft delete)')){ alert('Rapport gemarkeerd als verwijderd (soft delete). System Owner blijft het zien.'); } }
   function restoreReport(){ alert('Rapportstatus hersteld naar actief. Het is weer zichtbaar voor tenant users/admins.'); }
 
   // Auto-logout na 30 minuten
-  let logoutTimer; function resetLogoutTimer(){ clearTimeout(logoutTimer); logoutTimer=setTimeout(()=>{alert('Je bent automatisch uitgelogd na 30 minuten inactiviteit');},1800000); }
+  let logoutTimer; function resetLogoutTimer(){ clearTimeout(logoutTimer); logoutTimer=setTimeout(()=>{
+    alert('Je bent automatisch uitgelogd na 30 minuten inactiviteit');
+    logout();
+  },1800000); }
   ['click','mousemove','keypress'].forEach(evt=>document.addEventListener(evt,resetLogoutTimer));
   
+  // Auth check
+  function checkAuth() {
+    const token = localStorage.getItem('asbest_jwt');
+    if (!token) {
+      window.location.href = '/auth';
+      return false;
+    }
+    return true;
+  }
+
   // Initialize app
   window.onload=async ()=>{
+    // Check authentication first
+    if (!checkAuth()) return;
+    
     resetLogoutTimer();
     
     // Check API health on startup
@@ -190,7 +221,7 @@
       <div class="crumbs" id="crumb">System Owner</div>
       <div>
         <button class="btn ghost">Help</button>
-        <button class="btn">Uitloggen</button>
+        <button class="btn" onclick="logout()">Uitloggen</button>
       </div>
     </div>
 

@@ -82,9 +82,12 @@
   // API Helper Functions
   async function apiCall(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    const token = localStorage.getItem('asbest_jwt');
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers
       },
       ...options
@@ -92,6 +95,12 @@
     
     try {
       const response = await fetch(url, config);
+      if (response.status === 401) {
+        // Unauthorized - redirect to login
+        localStorage.removeItem('asbest_jwt');
+        window.location.href = '/auth';
+        return;
+      }
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -147,16 +156,38 @@
     }
   }
 
+  // Logout functionaliteit
+  function logout() {
+    localStorage.removeItem('asbest_jwt');
+    window.location.href = '/auth';
+  }
+
   // Auto-logout na 30 minuten
   let logoutTimer;
   function resetLogoutTimer(){
     clearTimeout(logoutTimer);
-    logoutTimer=setTimeout(()=>{alert('Je bent automatisch uitgelogd na 30 minuten inactiviteit');},1800000);
+    logoutTimer=setTimeout(()=>{
+      alert('Je bent automatisch uitgelogd na 30 minuten inactiviteit');
+      logout();
+    },1800000);
   }
   ['click','mousemove','keypress'].forEach(evt=>document.addEventListener(evt,resetLogoutTimer));
   
+  // Auth check
+  function checkAuth() {
+    const token = localStorage.getItem('asbest_jwt');
+    if (!token) {
+      window.location.href = '/auth';
+      return false;
+    }
+    return true;
+  }
+
   // Initialize app
   window.onload=async ()=>{
+    // Check authentication first
+    if (!checkAuth()) return;
+    
     resetLogoutTimer();
     
     // Check API health on startup
@@ -204,7 +235,7 @@
       <div class="crumbs" id="crumb">User</div>
       <div>
         <button class="btn ghost">Help</button>
-        <button class="btn">Uitloggen</button>
+        <button class="btn" onclick="logout()">Uitloggen</button>
       </div>
     </div>
 
