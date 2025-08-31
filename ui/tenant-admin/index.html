@@ -159,10 +159,95 @@
     },200);
   }
 
-  function confirmDelete(){
-    if(confirm('Weet je zeker dat je dit rapport wilt verwijderen?')){
-      alert('Rapport verwijderd');
+  function confirmDelete(){alert('Rapport verwijderd (soft-delete).');}
+  function confirmRestore(){alert('Rapport hersteld.');}
+  
+  // Load Users (Tenant Admin can only see users from their tenant)
+  async function loadUsers() {
+    try {
+      const response = await apiCall('/users');
+      if (response && response.ok) {
+        const users = await response.json();
+        console.log('Users loaded:', users);
+        updateUsersTable(users);
+        return users;
+      }
+    } catch (error) {
+      console.error('Failed to load users:', error);
     }
+    return [];
+  }
+
+  // Load Reports (Tenant Admin can only see reports from their tenant)
+  async function loadReports() {
+    try {
+      const response = await apiCall('/reports');
+      if (response && response.ok) {
+        const reports = await response.json();
+        console.log('Reports loaded:', reports);
+        updateReportsTable(reports);
+        return reports;
+      }
+    } catch (error) {
+      console.error('Failed to load reports:', error);
+    }
+    return [];
+  }
+
+  // Update UI Functions
+  function updateUsersTable(users) {
+    const table = document.querySelector('#users table tbody');
+    if (!table) return;
+    
+    table.innerHTML = users.map(user => `
+      <tr>
+        <td>${user.first_name || '-'}</td>
+        <td>${user.last_name || '-'}</td>
+        <td>${user.email}</td>
+        <td>${user.role}</td>
+        <td><span class="chip ${user.is_active ? 'ok' : 'bad'}">${user.is_active ? 'Actief' : 'Inactief'}</span></td>
+        <td>
+          <button class="icon-btn" title="Bekijk">👁</button>
+          <button class="icon-btn" title="Bewerken">✏️</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function updateReportsTable(reports) {
+    const table = document.querySelector('[data-view="Rapporten"] table tbody');
+    if (!table) return;
+    
+    table.innerHTML = reports.map(report => `
+      <tr>
+        <td><a onclick="show('Rapportdetail')">${report.filename || 'Onbekend'}</a></td>
+        <td><span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></td>
+        <td>${report.findings_count || '-'}</td>
+        <td>${report.score || '-'}</td>
+        <td>${formatDate(report.created_at)}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
+          <button class="icon-btn" title="Download">⬇️</button>
+          <button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function getStatusClass(status) {
+    switch (status) {
+      case 'DONE': return 'ok';
+      case 'PROCESSING': return 'warn';
+      case 'FAILED': return 'bad';
+      case 'DELETED': return 'deleted';
+      default: return 'warn';
+    }
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('nl-NL');
   }
 
   // Logout functionaliteit

@@ -128,6 +128,123 @@
   function confirmDelete(){alert('Rapport verwijderd (soft-delete).');}
   function confirmRestore(){alert('Rapport hersteld.');}
   
+  // Load Tenants
+  async function loadTenants() {
+    try {
+      const response = await apiCall('/tenants');
+      if (response && response.ok) {
+        const tenants = await response.json();
+        console.log('Tenants loaded:', tenants);
+        updateTenantsTable(tenants);
+        return tenants;
+      }
+    } catch (error) {
+      console.error('Failed to load tenants:', error);
+    }
+    return [];
+  }
+
+  // Load Users
+  async function loadUsers() {
+    try {
+      const response = await apiCall('/users');
+      if (response && response.ok) {
+        const users = await response.json();
+        console.log('Users loaded:', users);
+        updateUsersTable(users);
+        return users;
+      }
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    }
+    return [];
+  }
+
+  // Load Reports
+  async function loadReports() {
+    try {
+      const response = await apiCall('/reports');
+      if (response && response.ok) {
+        const reports = await response.json();
+        console.log('Reports loaded:', reports);
+        updateReportsTable(reports);
+        return reports;
+      }
+    } catch (error) {
+      console.error('Failed to load reports:', error);
+    }
+    return [];
+  }
+
+  // Update UI Functions
+  function updateTenantsTable(tenants) {
+    const table = document.querySelector('#tenants table tbody');
+    if (!table) return;
+    
+    table.innerHTML = tenants.map(tenant => `
+      <tr>
+        <td>${tenant.name}</td>
+        <td>${tenant.kvk || '-'}</td>
+        <td>${tenant.contact_email || '-'}</td>
+        <td>${tenant.user_count || 0}</td>
+      </tr>
+    `).join('');
+  }
+
+  function updateUsersTable(users) {
+    const table = document.querySelector('#users table tbody');
+    if (!table) return;
+    
+    table.innerHTML = users.map(user => `
+      <tr>
+        <td>${user.first_name || '-'}</td>
+        <td>${user.last_name || '-'}</td>
+        <td>${user.email}</td>
+        <td>${user.role}</td>
+        <td><span class="chip ${user.is_active ? 'ok' : 'bad'}">${user.is_active ? 'Actief' : 'Inactief'}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function updateReportsTable(reports) {
+    const table = document.querySelector('[data-view="Rapporten"] table tbody');
+    if (!table) return;
+    
+    table.innerHTML = reports.map(report => `
+      <tr>
+        <td><a onclick="show('Rapportdetail')">${report.filename || 'Onbekend'}</a></td>
+        <td>${report.tenant_name || '-'}</td>
+        <td><span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></td>
+        <td>${report.findings_count || '-'}</td>
+        <td>${report.score || '-'}</td>
+        <td>${formatDate(report.created_at)}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
+          ${report.status === 'DELETED' ? 
+            '<button class="icon-btn" title="Herstel" onclick="confirmRestore()">♻️</button>' : 
+            '<button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>'
+          }
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function getStatusClass(status) {
+    switch (status) {
+      case 'DONE': return 'ok';
+      case 'PROCESSING': return 'warn';
+      case 'FAILED': return 'bad';
+      case 'DELETED': return 'deleted';
+      default: return 'warn';
+    }
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('nl-NL');
+  }
+  
   window.onload=()=>{
     checkApiHealth();
     show('Rapporten');
