@@ -44,6 +44,21 @@ def run_migrations():
         print(f"STDERR: {e.stderr}")
         return False
 
+def run_seed():
+    """Run seed script to create initial data."""
+    print("🌱 Running seed script...")
+    try:
+        result = subprocess.run(['python', 'scripts/seed.py'], 
+                              capture_output=True, text=True, check=True)
+        print("✅ Seed script completed successfully")
+        print(f"STDOUT: {result.stdout}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Seed script failed: {e}")
+        print(f"STDOUT: {e.stdout}")
+        print(f"STDERR: {e.stderr}")
+        return False
+
 def start_app():
     """Start the FastAPI application."""
     print("🚀 Starting FastAPI application...")
@@ -62,6 +77,10 @@ if __name__ == "__main__":
     
     if not run_migrations():
         print("❌ Failed to run migrations, exiting...")
+        sys.exit(1)
+    
+    if not run_seed():
+        print("❌ Failed to run seed script, exiting...")
         sys.exit(1)
     
     start_app()
