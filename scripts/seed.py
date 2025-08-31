@@ -112,7 +112,7 @@ async def main():
     """Hoofdfunctie voor het seeden van data."""
     print("🌱 Starten met seeden van initiële data...")
     
-    async with get_async_session_local() as session:
+    async with get_async_session_local()() as session:
         try:
             # Maak system owner aan
             system_owner = await create_system_owner(session)
