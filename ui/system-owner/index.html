@@ -105,6 +105,17 @@
     const link = document.querySelector(`.nav a[data-link="${view}"]`);
     if(link) link.classList.add('active');
     document.getElementById('crumb').textContent = `${CURRENT_USER.full} / System Owner / ${view}`;
+    
+    // Load data based on view
+    switch(view) {
+      case 'Rapporten':
+        loadReports();
+        break;
+      case 'Admin':
+        loadTenants();
+        loadUsers();
+        break;
+    }
   }
   
   function switchTab(tab){
