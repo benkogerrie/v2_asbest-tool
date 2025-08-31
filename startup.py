@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 def check_database_url():
     """Check if DATABASE_URL is properly set."""
     database_url = os.getenv('DATABASE_URL')
+    print(f"🔍 DATABASE_URL from environment: {database_url}")
+    
     if not database_url:
         print("❌ DATABASE_URL not set")
         return False
@@ -18,6 +20,7 @@ def check_database_url():
     
     try:
         parsed = urlparse(database_url)
+        print(f"🔍 Parsed URL - Hostname: {parsed.hostname}, Username: {parsed.username}")
         if not parsed.hostname or not parsed.username or not parsed.password:
             print("❌ DATABASE_URL is incomplete")
             return False
