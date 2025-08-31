@@ -1,9 +1,10 @@
+import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 
 
 class Settings(BaseSettings):
-    # Database
+    # Database - Railway compatibility
     database_url: str = "postgresql://postgres:password@localhost:5432/asbest_tool"
     
     # JWT
@@ -36,11 +37,25 @@ class Settings(BaseSettings):
     # CORS Configuration
     cors_origins: Optional[str] = "https://v21-asbest-tool-nutv.vercel.app,http://localhost:3000,http://localhost:8080,*"
     
+    # Railway Port (for local testing compatibility)
+    port: int = int(os.getenv("PORT", "8000"))
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Handle Railway DATABASE_URL format conversion
+        if "DATABASE_URL" in os.environ:
+            db_url = os.environ["DATABASE_URL"]
+            # Railway gives postgres:// but SQLAlchemy needs postgresql://
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql://", 1)
+            self.database_url = db_url
+    
     class Config:
         env_file = ".env"
         # Map JWT_SECRET to secret_key for Railway compatibility
         fields = {
-            'secret_key': {'env': 'JWT_SECRET'}
+            'secret_key': {'env': 'JWT_SECRET'},
+            'database_url': {'env': 'DATABASE_URL'}
         }
 
 
