@@ -4,7 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool"
+    database_url: str = "postgresql://postgres:password@localhost:5432/asbest_tool"
     
     # JWT
     secret_key: str = "your-secret-key-change-in-production"
