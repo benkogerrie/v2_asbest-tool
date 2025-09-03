@@ -52,10 +52,11 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
-        # Map JWT_SECRET to secret_key for Railway compatibility
+        # Map environment variables for Railway compatibility
         fields = {
             'secret_key': {'env': 'JWT_SECRET'},
-            'database_url': {'env': 'DATABASE_URL'}
+            'database_url': {'env': 'DATABASE_URL'},
+            'redis_url': {'env': 'REDIS_URL'}
         }
 
 

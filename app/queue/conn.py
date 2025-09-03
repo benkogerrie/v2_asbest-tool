@@ -8,7 +8,16 @@ from app.config import settings
 
 def redis_conn():
     """Get Redis connection."""
-    return redis.from_url(settings.redis_url)
+    try:
+        conn = redis.from_url(settings.redis_url)
+        # Test connection
+        conn.ping()
+        return conn
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to connect to Redis at {settings.redis_url}: {e}")
+        raise
 
 
 def reports_queue():

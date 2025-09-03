@@ -257,7 +257,9 @@ Voor Railway deployment:
 
 3. **Redis Service**: Voeg Redis toe als externe service
    - Railway Redis plugin of externe Redis provider
-   - Zorg dat `REDIS_URL` correct is geconfigureerd
+   - **BELANGRIJK**: Configureer `REDIS_URL` in beide services (API + Worker)
+   - Format: `redis://:<password>@<host>:<port>/0`
+   - Voeg toe als environment variable in Railway dashboard
 
 4. **Database**: PostgreSQL service (al aanwezig)
    - Zorg dat `DATABASE_URL` correct is geconfigureerd
@@ -265,9 +267,20 @@ Voor Railway deployment:
 5. **Storage**: S3/MinIO service
    - Configureer S3 credentials of gebruik Railway S3 plugin
 
-### Worker Monitoring
+### Railway Troubleshooting
 
-De worker verwerkt automatisch geüploade rapporten:
+**Redis Connection Issues:**
+1. Controleer of `REDIS_URL` is ingesteld in beide services (API + Worker)
+2. Format moet zijn: `redis://:<password>@<host>:<port>/0`
+3. Herstart beide services na het toevoegen van environment variables
+4. Controleer worker logs voor Redis connection success/failure
+
+**Worker Service Issues:**
+1. Gebruik `railway-worker.json` voor worker service configuratie
+2. Start command: `python -m worker.run`
+3. Worker wacht automatisch op Redis beschikbaarheid (max 30 pogingen)
+
+### Worker Monitoring
 
 - Status: PROCESSING → DONE/FAILED
 - Genereert dummy AI analyse (score: 89, 2 bevindingen)
