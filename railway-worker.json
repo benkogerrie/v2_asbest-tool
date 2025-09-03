@@ -4,8 +4,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python -m worker.run",
-    "healthcheckPath": "/healthz",
-    "healthcheckTimeout": 100
+    "startCommand": "python -m worker.run"
   }
 }
