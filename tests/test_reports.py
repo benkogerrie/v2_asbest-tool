@@ -99,6 +99,24 @@ def test_upload_report_file_too_large(client, mock_auth):
     assert "File too large" in response.json()["error"]["message"]
 
 
+def test_upload_report_redis_unavailable(client, mock_storage, mock_auth):
+    """Test upload fails with 503 when Redis is unavailable."""
+    test_file = io.BytesIO(b"test file content")
+    
+    with patch("app.api.reports.redis_conn") as mock_redis_conn:
+        mock_conn = MagicMock()
+        mock_conn.ping.side_effect = Exception("Redis connection failed")
+        mock_redis_conn.return_value = mock_conn
+        
+        response = client.post(
+            "/reports/",
+            files={"file": ("test.pdf", test_file, "application/pdf")}
+        )
+    
+    assert response.status_code == 503
+    assert "Queue service unavailable" in response.json()["detail"]
+
+
 def test_list_reports_user(client, mock_auth):
     """Test listing reports for regular user."""
     response = client.get("/reports/")

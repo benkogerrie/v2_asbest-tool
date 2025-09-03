@@ -69,10 +69,7 @@ async def root():
     }
 
 
-@app.get("/healthz")
-async def healthz():
-    """Health check for Railway."""
-    return {"status": "healthy", "port": os.getenv("PORT", "unknown")}
+
 
 
 if __name__ == "__main__":

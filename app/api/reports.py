@@ -19,7 +19,7 @@ from app.auth.dependencies import get_current_active_user, get_current_admin_or_
 from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
 from app.config import settings
-from app.queue.conn import reports_queue
+from app.queue.conn import reports_queue, redis_conn
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -159,6 +159,8 @@ async def upload_report(
         
         # Enqueue processing job
         try:
+            # Check Redis availability before enqueuing
+            redis_conn().ping()
             reports_queue().enqueue(
                 "app.queue.jobs.process_report",
                 report_id=str(report.id),
@@ -167,7 +169,11 @@ async def upload_report(
             logger.info(f"Processing job enqueued for report {report.id}")
         except Exception as e:
             logger.error(f"Failed to enqueue processing job for report {report.id}: {e}")
-            # Don't fail the upload if job enqueue fails
+            # Fail the upload if job enqueue fails - user should know the system is not fully functional
+            raise HTTPException(
+                status_code=503,
+                detail="Queue service unavailable - report uploaded but processing cannot be scheduled"
+            )
         
         logger.info(f"Report uploaded successfully: {report.id} by user {current_user.id}")
         
