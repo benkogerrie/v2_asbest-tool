@@ -37,27 +37,18 @@ def wait_for_redis(max_retries=30, retry_delay=2):
     
     return False
 
-def health_check():
-    """Simple health check function."""
-    try:
-        # Test Redis connection
-        conn = redis_conn()
-        conn.ping()
-        return True
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return False
+
 
 
 if __name__ == "__main__":
     logger.info("Starting RQ worker for report processing...")
     
-    # Initial health check
-    if not health_check():
-        logger.error("Initial health check failed, exiting...")
+    # Wait for Redis to become available
+    if not wait_for_redis():
+        logger.error("Failed to connect to Redis, exiting...")
         exit(1)
     
-    logger.info("Initial health check passed, starting worker...")
+    logger.info("Redis connection established, starting worker...")
 
     with Connection(redis_conn()):
         # Create worker for the reports queue

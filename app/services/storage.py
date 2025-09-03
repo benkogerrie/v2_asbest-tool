@@ -2,7 +2,7 @@
 Object storage service for S3/MinIO compatibility.
 """
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import ClientError
 from botocore.config import Config
 from typing import BinaryIO, Optional
 import logging

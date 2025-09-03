@@ -56,14 +56,14 @@ def validate_file_upload(file: UploadFile) -> None:
         logger.warning(f"File size unknown for {file.filename}, will validate during upload")
 
 
-async def validate_file_size_during_upload(file_stream, max_size: int) -> None:
+def validate_file_size_during_upload(file_stream, max_size: int) -> None:
     """Validate file size during streaming upload."""
     chunk_size = 8192  # 8KB chunks
     total_size = 0
     
     # Read file in chunks and check size
     while True:
-        chunk = await file_stream.read(chunk_size)
+        chunk = file_stream.read(chunk_size)
         if not chunk:
             break
         total_size += len(chunk)
@@ -71,7 +71,7 @@ async def validate_file_size_during_upload(file_stream, max_size: int) -> None:
             raise FileTooLargeError(f"File too large. Max size: {settings.max_upload_mb}MB")
     
     # Reset file pointer for actual upload
-    await file_stream.seek(0)
+    file_stream.seek(0)
 
 
 @router.post("/", response_model=ReportOut, status_code=201)
@@ -133,7 +133,7 @@ async def upload_report(
         
         # If file size is unknown, validate during upload
         if file.size is None:
-            await validate_file_size_during_upload(file.file, MAX_FILE_SIZE)
+            validate_file_size_during_upload(file.file, MAX_FILE_SIZE)
         
         if not storage.upload_fileobj(
             file.file,
