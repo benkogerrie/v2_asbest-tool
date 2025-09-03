@@ -6,7 +6,7 @@
   "deploy": {
     "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port 8080",
     "healthcheckPath": "/healthz",
-    "healthcheckTimeout": 300,
-    "healthcheckInterval": 60
+    "healthcheckTimeout": 100,
+    "healthcheckInterval": 30
   }
 }

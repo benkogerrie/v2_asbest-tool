@@ -7,3 +7,8 @@
 [33m17fd26f[m Add psycopg dependency for Railway deployment
 [33madaf353[m Fix alembic.ini to use Railway database URL
 [33m6f42788[m Add debug logging to startup script
+[33m2b66288[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix Railway  expansion issue: use shell command to properly expand PORT environment variable
+[33m4769b98[m Fix worker healthcheck issue: remove unnecessary healthcheckPath from worker service config
+[33m82215af[m Fix API healthcheck issues: resolve route conflict, add comprehensive health checks, create Railway deployment checklist
+[33mf45797f[m Fix Railway Redis connection issues: add REDIS_URL mapping, create worker config, improve error handling
+[33mf8bf31c[m Fix I/O consistency, clean up imports, and improve Redis connection handling
