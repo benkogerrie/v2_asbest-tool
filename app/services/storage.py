@@ -8,6 +8,7 @@ from typing import BinaryIO, Optional
 import logging
 
 from app.config import settings
+from app.exceptions import StorageError
 
 logger = logging.getLogger(__name__)
 

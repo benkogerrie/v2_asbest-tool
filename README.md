@@ -13,7 +13,7 @@ Een FastAPI-gebaseerde API voor het uploaden en analyseren van asbest rapporten.
 
 ### Authenticatie
 
-Alle endpoints vereisen JWT authenticatie via Bearer token.
+Alle endpoints vereisen JWT authenticatie via Bearer token, behalve het `/healthz` endpoint dat publiek toegankelijk is.
 
 ### File Upload (Slice 2)
 
