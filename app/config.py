@@ -5,7 +5,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database - Railway compatibility
-    database_url: str = "postgresql://postgres:password@localhost:5432/asbest_tool"
+    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool"
     
     # JWT
     secret_key: str = "your-secret-key-change-in-production"
@@ -45,9 +45,11 @@ class Settings(BaseSettings):
         # Handle Railway DATABASE_URL format conversion
         if "DATABASE_URL" in os.environ:
             db_url = os.environ["DATABASE_URL"]
-            # Railway gives postgres:// but SQLAlchemy needs postgresql://
+            # Railway gives postgres:// but SQLAlchemy async driver requires postgresql+asyncpg://
             if db_url.startswith("postgres://"):
-                db_url = db_url.replace("postgres://", "postgresql://", 1)
+                db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif db_url.startswith("postgresql://"):
+                db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
             self.database_url = db_url
     
     class Config:
