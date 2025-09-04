@@ -79,8 +79,10 @@ if __name__ == "__main__":
         print("❌ Failed to run migrations, exiting...")
         sys.exit(1)
     
-    if not run_seed():
-        print("❌ Failed to run seed script, exiting...")
-        sys.exit(1)
+    # Skip seed script for now to avoid startup issues
+    print("⏭️ Skipping seed script for now...")
+    # if not run_seed():
+    #     print("❌ Failed to run seed script, exiting...")
+    #     sys.exit(1)
     
     start_app()
