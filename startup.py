@@ -30,7 +30,11 @@ def check_database_url():
         print("🔍 Testing database connection...")
         import psycopg2
         try:
-            conn = psycopg2.connect(database_url)
+            # Convert to sync URL for psycopg2
+            sync_url = database_url
+            if sync_url.startswith("postgresql+asyncpg://"):
+                sync_url = sync_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+            conn = psycopg2.connect(sync_url)
             conn.close()
             print("✅ Database connection test successful")
             return True

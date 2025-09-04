@@ -6,7 +6,25 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database - Railway compatibility
-    database_url: str = Field(default="postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool", env="DATABASE_URL")
+    _database_url: str = Field(default="postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool", env="DATABASE_URL", alias="database_url")
+    
+    @property
+    def database_url(self) -> str:
+        """Get database URL, converting to async version if needed."""
+        db_url = self._database_url
+        # Convert postgresql:// to postgresql+asyncpg:// for async operations
+        if db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
+            return db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return db_url
+    
+    @property
+    def database_url_sync(self) -> str:
+        """Get database URL for sync operations (psycopg2)."""
+        db_url = self._database_url
+        # Convert postgresql+asyncpg:// back to postgresql:// for sync operations
+        if db_url.startswith("postgresql+asyncpg://"):
+            return db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        return db_url
     
     # JWT
     secret_key: str = Field(default="your-secret-key-change-in-production", env="JWT_SECRET")

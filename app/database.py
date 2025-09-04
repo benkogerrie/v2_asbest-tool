@@ -48,4 +48,4 @@ async def get_db() -> AsyncSession:
 
 def get_db_url() -> str:
     """Get database URL for sync operations (used by RQ worker)."""
-    return settings.database_url
+    return settings.database_url_sync
