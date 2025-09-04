@@ -25,7 +25,19 @@ def check_database_url():
             print("❌ DATABASE_URL is incomplete")
             return False
         print("✅ DATABASE_URL looks valid")
-        return True
+        
+        # Test actual database connection
+        print("🔍 Testing database connection...")
+        import psycopg2
+        try:
+            conn = psycopg2.connect(database_url)
+            conn.close()
+            print("✅ Database connection test successful")
+            return True
+        except Exception as e:
+            print(f"❌ Database connection test failed: {e}")
+            return False
+            
     except Exception as e:
         print(f"❌ DATABASE_URL parsing error: {e}")
         return False
