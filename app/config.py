@@ -1,14 +1,15 @@
 import os
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional
 
 
 class Settings(BaseSettings):
     # Database - Railway compatibility
-    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool"
+    database_url: str = Field(default="postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool", env="DATABASE_URL")
     
     # JWT
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str = Field(default="your-secret-key-change-in-production", env="JWT_SECRET")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
     max_upload_mb: int = 50
     
     # Redis Configuration
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
     worker_concurrency: int = 1
     job_timeout_seconds: int = 120
     job_max_retries: int = 3
@@ -40,20 +41,9 @@ class Settings(BaseSettings):
     # Railway Port (for local testing compatibility)
     port: int = int(os.getenv("PORT", "8000"))
     
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Use DATABASE_URL as-is from environment (no conversion)
-        if "DATABASE_URL" in os.environ:
-            self.database_url = os.environ["DATABASE_URL"]
-    
-    class Config:
-        env_file = ".env"
-        # Map environment variables for Railway compatibility
-        fields = {
-            'secret_key': {'env': 'JWT_SECRET'},
-            'database_url': {'env': 'DATABASE_URL'},
-            'redis_url': {'env': 'REDIS_URL'}
-        }
+    model_config = {
+        "env_file": ".env"
+    }
 
 
 settings = Settings()
