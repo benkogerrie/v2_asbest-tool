@@ -8,9 +8,22 @@ async def health_check():
     import datetime
     import os
     import traceback
-    from app.database import get_db, get_engine
-    from app.queue.conn import redis_conn
-    from app.config import settings
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        from app.database import get_db, get_engine
+        from app.queue.conn import redis_conn
+        from app.config import settings
+    except Exception as e:
+        logger.error(f"Failed to import modules: {e}")
+        return {
+            "status": "error",
+            "message": "Failed to import required modules",
+            "error": str(e),
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
     
     health_status = {
         "status": "healthy",
