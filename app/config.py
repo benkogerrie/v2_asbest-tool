@@ -42,15 +42,9 @@ class Settings(BaseSettings):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Handle Railway DATABASE_URL format conversion
+        # Use DATABASE_URL as-is from environment (no conversion)
         if "DATABASE_URL" in os.environ:
-            db_url = os.environ["DATABASE_URL"]
-            # Railway gives postgres:// but SQLAlchemy async driver requires postgresql+asyncpg://
-            if db_url.startswith("postgres://"):
-                db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
-            elif db_url.startswith("postgresql://"):
-                db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-            self.database_url = db_url
+            self.database_url = os.environ["DATABASE_URL"]
     
     class Config:
         env_file = ".env"
