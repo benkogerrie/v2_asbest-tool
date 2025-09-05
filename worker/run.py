@@ -5,6 +5,10 @@ import os
 import logging
 import time
 import sys
+
+# Add the parent directory to Python path so we can import from app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from rq import Worker, Queue, Connection
 from app.queue.conn import redis_conn
 
