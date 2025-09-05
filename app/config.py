@@ -42,13 +42,13 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # S3/MinIO Storage
-    s3_endpoint: str = Field(default="http://localhost:9000", env="S3_ENDPOINT")
+    s3_endpoint: str = Field(default="https://ams3.digitaloceanspaces.com", env="S3_ENDPOINT")
     s3_region: str = Field(default="us-east-1", env="S3_REGION")
-    s3_access_key_id: str = Field(default="minioadmin", env="S3_ACCESS_KEY_ID")
-    s3_secret_access_key: str = Field(default="minioadmin", env="S3_SECRET_ACCESS_KEY")
-    s3_bucket: str = Field(default="asbesttool-dev", env="S3_BUCKET")
+    s3_access_key_id: str = Field(default="", env="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field(default="", env="S3_SECRET_ACCESS_KEY")
+    s3_bucket: str = Field(default="asbest-tool", env="S3_BUCKET")
     s3_use_path_style: bool = Field(default=True, env="S3_USE_PATH_STYLE")
-    s3_secure: bool = Field(default=False, env="S3_SECURE")
+    s3_secure: bool = Field(default=True, env="S3_SECURE")
     
     # Upload limits
     max_upload_mb: int = Field(default=50, env="MAX_UPLOAD_MB")
