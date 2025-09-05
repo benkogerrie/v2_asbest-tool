@@ -37,11 +37,11 @@ class ObjectStorage:
         self.client = boto3.client(
             's3',
             endpoint_url=endpoint,
-            region_name=region,
+            region_name='us-east-1',  # Use us-east-1 for DO Spaces
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             config=Config(
-                s3={'addressing_style': 'path' if use_path_style else 'auto'},
+                s3={'addressing_style': 'path'},  # Always use path style for DO Spaces
                 signature_version='s3v4'  # Use S3 v4 signatures for DO Spaces
             ),
             use_ssl=secure,
