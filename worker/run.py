@@ -70,6 +70,14 @@ if __name__ == "__main__":
             logger.error(f"❌ Database URL failed: {e}")
             exit(1)
         
+        # Test S3/Storage configuration
+        try:
+            from app.services.storage import storage
+            logger.info("✅ Storage service import successful")
+        except Exception as e:
+            logger.error(f"❌ Storage service import failed: {e}")
+            exit(1)
+        
         # Wait for Redis to become available
         if not wait_for_redis():
             logger.error("Failed to connect to Redis, exiting...")
