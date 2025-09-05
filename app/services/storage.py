@@ -155,5 +155,13 @@ class ObjectStorage:
             return False
 
 
-# Global storage instance - temporarily using HTTP version
-from .storage_http import storage
+# Global storage instance
+storage = ObjectStorage(
+    endpoint=settings.s3_endpoint,
+    region=settings.s3_region,
+    access_key=settings.s3_access_key_id,
+    secret_key=settings.s3_secret_access_key,
+    bucket=settings.s3_bucket,
+    use_path_style=settings.s3_use_path_style,
+    secure=settings.s3_secure
+)
