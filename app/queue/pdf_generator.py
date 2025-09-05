@@ -189,9 +189,19 @@ def generate_conclusion_pdf(
     )
     
     # Generate PDF
-    font_config = FontConfiguration()
-    html = HTML(string=html_content)
-    css = CSS(string='', font_config=font_config)
-    
-    pdf_bytes = html.write_pdf(stylesheets=[css], font_config=font_config)
-    return pdf_bytes
+    try:
+        font_config = FontConfiguration()
+        html = HTML(string=html_content)
+        css = CSS(string='', font_config=font_config)
+        
+        pdf_bytes = html.write_pdf(stylesheets=[css], font_config=font_config)
+        return pdf_bytes
+    except Exception as e:
+        # Fallback: simple PDF generation without CSS
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"PDF generation with CSS failed: {e}, trying simple version")
+        
+        html = HTML(string=html_content)
+        pdf_bytes = html.write_pdf()
+        return pdf_bytes
