@@ -29,9 +29,17 @@ def process_report(report_id: str) -> bool:
     Returns:
         bool: True if processing succeeded, False otherwise
     """
-    # Create sync database session for RQ worker
-    engine = create_engine(get_db_url().replace("+asyncpg", ""))
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    logger.info(f"Starting to process report {report_id}")
+    
+    try:
+        # Create sync database session for RQ worker
+        db_url = get_db_url()
+        logger.info(f"Using database URL: {db_url[:50]}...")
+        engine = create_engine(db_url)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    except Exception as e:
+        logger.error(f"Failed to create database engine: {e}")
+        return False
     
     with SessionLocal() as session:
         try:

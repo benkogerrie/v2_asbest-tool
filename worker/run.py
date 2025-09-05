@@ -47,23 +47,54 @@ def wait_for_redis(max_retries=30, retry_delay=2):
 if __name__ == "__main__":
     logger.info("Starting RQ worker for report processing...")
     
-    # Wait for Redis to become available
-    if not wait_for_redis():
-        logger.error("Failed to connect to Redis, exiting...")
-        exit(1)
-    
-    logger.info("Redis connection established, starting worker...")
-
-    with Connection(redis_conn()):
-        # Create worker for the reports queue
-        worker = Worker([Queue("reports")])
-        logger.info("Worker created, starting work...")
+    try:
+        # Test imports first
+        logger.info("Testing imports...")
+        from app.config import settings
+        logger.info("✅ Settings import successful")
         
-        # Start worker with health monitoring
+        from app.queue.conn import redis_conn, reports_queue
+        logger.info("✅ Queue imports successful")
+        
+        from app.queue.jobs import process_report
+        logger.info("✅ Jobs import successful")
+        
+        from app.database import get_db_url
+        logger.info("✅ Database imports successful")
+        
+        # Test database connection
         try:
-            worker.work(with_scheduler=True)
-        except KeyboardInterrupt:
-            logger.info("Worker stopped by user")
+            db_url = get_db_url()
+            logger.info(f"✅ Database URL: {db_url[:50]}...")
         except Exception as e:
-            logger.error(f"Worker error: {e}")
+            logger.error(f"❌ Database URL failed: {e}")
             exit(1)
+        
+        # Wait for Redis to become available
+        if not wait_for_redis():
+            logger.error("Failed to connect to Redis, exiting...")
+            exit(1)
+        
+        logger.info("Redis connection established, starting worker...")
+
+        with Connection(redis_conn()):
+            # Create worker for the reports queue
+            worker = Worker([Queue("reports")])
+            logger.info("Worker created, starting work...")
+            
+            # Start worker with health monitoring
+            try:
+                worker.work(with_scheduler=True)
+            except KeyboardInterrupt:
+                logger.info("Worker stopped by user")
+            except Exception as e:
+                logger.error(f"Worker error: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                exit(1)
+                
+    except Exception as e:
+        logger.error(f"Failed to start worker: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        exit(1)
