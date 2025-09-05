@@ -42,16 +42,16 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # S3/MinIO Storage
-    s3_endpoint: str = "http://localhost:9000"
-    s3_region: str = "us-east-1"
-    s3_access_key_id: str = "minioadmin"
-    s3_secret_access_key: str = "minioadmin"
-    s3_bucket: str = "asbesttool-dev"
-    s3_use_path_style: bool = True
-    s3_secure: bool = False
+    s3_endpoint: str = Field(default="http://localhost:9000", env="S3_ENDPOINT")
+    s3_region: str = Field(default="us-east-1", env="S3_REGION")
+    s3_access_key_id: str = Field(default="minioadmin", env="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field(default="minioadmin", env="S3_SECRET_ACCESS_KEY")
+    s3_bucket: str = Field(default="asbesttool-dev", env="S3_BUCKET")
+    s3_use_path_style: bool = Field(default=True, env="S3_USE_PATH_STYLE")
+    s3_secure: bool = Field(default=False, env="S3_SECURE")
     
     # Upload limits
-    max_upload_mb: int = 50
+    max_upload_mb: int = Field(default=50, env="MAX_UPLOAD_MB")
     
     # Redis Configuration
     redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")

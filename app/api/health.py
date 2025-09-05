@@ -14,6 +14,41 @@ async def health_check():
         "version": "1.0.0"
     }
 
+@router.get("/healthz/storage")
+async def health_check_storage():
+    """Storage health check endpoint."""
+    import datetime
+    from app.config import settings
+    from app.services.storage import storage
+    
+    try:
+        # Test storage connection
+        bucket_exists = storage.ensure_bucket()
+        
+        return {
+            "status": "healthy" if bucket_exists else "degraded",
+            "message": "Storage check completed",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "storage": {
+                "endpoint": settings.s3_endpoint,
+                "bucket": settings.s3_bucket,
+                "region": settings.s3_region,
+                "bucket_exists": bucket_exists
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "message": f"Storage check failed: {str(e)}",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "storage": {
+                "endpoint": settings.s3_endpoint,
+                "bucket": settings.s3_bucket,
+                "region": settings.s3_region,
+                "error": str(e)
+            }
+        }
+
 @router.get("/")
 async def root():
     """Root endpoint."""
