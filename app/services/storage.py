@@ -52,12 +52,13 @@ class ObjectStorage:
     def ensure_bucket(self) -> bool:
         """Ensure the bucket exists, create if it doesn't."""
         try:
-            self.client.head_bucket(Bucket=self.bucket)
-            logger.info(f"Bucket {self.bucket} already exists")
+            # Use list_objects_v2 instead of head_bucket for better compatibility
+            self.client.list_objects_v2(Bucket=self.bucket, MaxKeys=1)
+            logger.info(f"Bucket {self.bucket} is accessible")
             return True
         except ClientError as e:
             error_code = e.response['Error']['Code']
-            if error_code == '404':
+            if error_code == 'NoSuchBucket':
                 # Bucket doesn't exist, create it only in development
                 if settings.debug:
                     try:
