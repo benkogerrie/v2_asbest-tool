@@ -53,33 +53,21 @@ class ObjectStorage:
     def ensure_bucket(self) -> bool:
         """Ensure the bucket exists, create if it doesn't."""
         try:
-            # Use list_objects_v2 instead of head_bucket for better compatibility
-            self.client.list_objects_v2(Bucket=self.bucket, MaxKeys=1)
-            logger.info(f"Bucket {self.bucket} is accessible")
-            return True
+            # Try a simple list_buckets operation first to test credentials
+            response = self.client.list_buckets()
+            bucket_names = [bucket['Name'] for bucket in response['Buckets']]
+            
+            if self.bucket in bucket_names:
+                logger.info(f"Bucket {self.bucket} exists and is accessible")
+                return True
+            else:
+                logger.error(f"Bucket {self.bucket} not found in available buckets: {bucket_names}")
+                raise StorageError(f"Storage bucket '{self.bucket}' does not exist. Available buckets: {bucket_names}")
+                
         except ClientError as e:
             error_code = e.response['Error']['Code']
-            if error_code == 'NoSuchBucket':
-                # Bucket doesn't exist, create it only in development
-                if settings.debug:
-                    try:
-                        self.client.create_bucket(
-                            Bucket=self.bucket,
-                            CreateBucketConfiguration={
-                                'LocationConstraint': self.region
-                            } if self.region != 'us-east-1' else {}
-                        )
-                        logger.info(f"Created bucket: {self.bucket}")
-                        return True
-                    except ClientError as create_error:
-                        logger.error(f"Failed to create bucket {self.bucket}: {create_error}")
-                        return False
-                else:
-                    logger.error(f"Bucket {self.bucket} does not exist and auto-creation is disabled in production")
-                    raise StorageError(f"Storage bucket '{self.bucket}' does not exist. Please create it manually in production.")
-            else:
-                logger.error(f"Error checking bucket {self.bucket}: {e}")
-                raise StorageError(f"Storage error: {e}")
+            logger.error(f"Error checking bucket {self.bucket}: {e}")
+            raise StorageError(f"Storage error: {e}")
         except Exception as e:
             logger.error(f"Unexpected error ensuring bucket {self.bucket}: {e}")
             raise StorageError(f"Storage error: {e}")
