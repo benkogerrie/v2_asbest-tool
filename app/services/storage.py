@@ -33,7 +33,7 @@ class ObjectStorage:
         self.use_path_style = use_path_style
         self.secure = secure
         
-        # Create S3 client
+        # Create S3 client with DigitalOcean Spaces compatibility
         self.client = boto3.client(
             's3',
             endpoint_url=endpoint,
@@ -41,7 +41,8 @@ class ObjectStorage:
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             config=Config(
-                s3={'addressing_style': 'path' if use_path_style else 'auto'}
+                s3={'addressing_style': 'path' if use_path_style else 'auto'},
+                signature_version='s3v4'  # Use S3 v4 signatures for DO Spaces
             ),
             use_ssl=secure,
             verify=secure  # Verify SSL certificates in production
