@@ -12,9 +12,13 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         """Get database URL, converting to async version if needed."""
         db_url = self.database_url_raw
+        print(f"🔍 CONFIG: Raw database URL: {db_url}")
         # Convert postgresql:// to postgresql+asyncpg:// for async operations
         if db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
-            return db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            converted_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            print(f"🔍 CONFIG: Converted to async URL: {converted_url}")
+            return converted_url
+        print(f"🔍 CONFIG: Using URL as-is: {db_url}")
         return db_url
     
     @property
