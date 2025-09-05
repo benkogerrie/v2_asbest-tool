@@ -20,6 +20,7 @@ from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
 from app.config import settings
 from app.queue.conn import reports_queue, redis_conn
+from rq import Retry
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -164,7 +165,7 @@ async def upload_report(
             reports_queue().enqueue(
                 "app.queue.jobs.process_report",
                 report_id=str(report.id),
-                retry=settings.job_max_retries,
+                retry=Retry(max=settings.job_max_retries),
                 job_timeout=settings.job_timeout_seconds
             )
             logger.info(f"Processing job enqueued for report {report.id}")
