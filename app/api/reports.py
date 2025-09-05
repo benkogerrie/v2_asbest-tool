@@ -164,7 +164,8 @@ async def upload_report(
             reports_queue().enqueue(
                 "app.queue.jobs.process_report",
                 report_id=str(report.id),
-                retry=settings.job_max_retries
+                retry=settings.job_max_retries,
+                job_timeout=settings.job_timeout_seconds
             )
             logger.info(f"Processing job enqueued for report {report.id}")
         except Exception as e:
