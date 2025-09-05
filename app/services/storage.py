@@ -44,7 +44,7 @@ class ObjectStorage:
                 s3={'addressing_style': 'path' if use_path_style else 'auto'}
             ),
             use_ssl=secure,
-            verify=False  # For self-signed certificates in development
+            verify=secure  # Verify SSL certificates in production
         )
         
         logger.info(f"Initialized ObjectStorage for bucket: {bucket}")
