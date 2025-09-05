@@ -6,29 +6,31 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database - Railway compatibility
-    database_url_raw: str = Field(default="postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool", env="DATABASE_URL")
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Get DATABASE_URL from environment and convert to async version
+        env_db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:password@localhost:5432/asbest_tool")
+        print(f"🔍 CONFIG: Environment DATABASE_URL: {env_db_url}")
+        
+        # Convert postgresql:// to postgresql+asyncpg:// for async operations
+        if env_db_url.startswith("postgresql://") and not env_db_url.startswith("postgresql+asyncpg://"):
+            self._database_url_async = env_db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            self._database_url_sync = env_db_url
+            print(f"🔍 CONFIG: Converted to async URL: {self._database_url_async}")
+        else:
+            self._database_url_async = env_db_url
+            self._database_url_sync = env_db_url.replace("postgresql+asyncpg://", "postgresql://", 1) if env_db_url.startswith("postgresql+asyncpg://") else env_db_url
+            print(f"🔍 CONFIG: Using URL as-is: {self._database_url_async}")
     
     @property
     def database_url(self) -> str:
-        """Get database URL, converting to async version if needed."""
-        db_url = self.database_url_raw
-        print(f"🔍 CONFIG: Raw database URL: {db_url}")
-        # Convert postgresql:// to postgresql+asyncpg:// for async operations
-        if db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
-            converted_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-            print(f"🔍 CONFIG: Converted to async URL: {converted_url}")
-            return converted_url
-        print(f"🔍 CONFIG: Using URL as-is: {db_url}")
-        return db_url
+        """Get database URL for async operations."""
+        return self._database_url_async
     
     @property
     def database_url_sync(self) -> str:
         """Get database URL for sync operations (psycopg2)."""
-        db_url = self.database_url_raw
-        # Convert postgresql+asyncpg:// back to postgresql:// for sync operations
-        if db_url.startswith("postgresql+asyncpg://"):
-            return db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
-        return db_url
+        return self._database_url_sync
     
     # JWT
     secret_key: str = Field(default="your-secret-key-change-in-production", env="JWT_SECRET")
