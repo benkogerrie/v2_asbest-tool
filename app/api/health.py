@@ -32,7 +32,7 @@ async def health_check_storage():
             "storage": {
                 "endpoint": settings.s3_endpoint,
                 "bucket": settings.s3_bucket,
-                "region": settings.s3_region,
+                "region": "us-east-1",  # DO Spaces uses us-east-1 for boto3
                 "bucket_exists": bucket_exists
             }
         }
@@ -44,7 +44,7 @@ async def health_check_storage():
             "storage": {
                 "endpoint": settings.s3_endpoint,
                 "bucket": settings.s3_bucket,
-                "region": settings.s3_region,
+                "region": "us-east-1",  # DO Spaces uses us-east-1 for boto3
                 "error": str(e)
             }
         }
