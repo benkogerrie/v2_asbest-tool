@@ -83,15 +83,15 @@ async def create_tenant_with_admin(
         # Generate temporary password
         temp_password = email_service.generate_temp_password()
         
-        # Create admin user
-        from app.schemas.user import UserCreate
+        # Create admin user using FastAPI Users schema
+        from fastapi_users import schemas
         
         # Prepare admin data with all required fields
         admin_data = {
+            'email': data.admin.get('email', ''),
+            'password': temp_password,
             'first_name': data.admin.get('first_name', ''),
             'last_name': data.admin.get('last_name', ''),
-            'email': data.admin.get('email', ''),
-            'password': temp_password,  # Add the generated password
             'role': UserRole.ADMIN,
             'tenant_id': tenant.id,
             'phone': data.admin.get('phone'),
@@ -100,8 +100,8 @@ async def create_tenant_with_admin(
             'employee_id': data.admin.get('employee_id')
         }
         
-        # Validate admin data
-        admin_create = UserCreate(**admin_data)
+        # Use FastAPI Users BaseUserCreate schema
+        admin_create = schemas.BaseUserCreate(**admin_data)
         
         # Create user using FastAPI Users
         from app.auth.auth import get_user_db
