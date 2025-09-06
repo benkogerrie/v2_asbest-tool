@@ -110,6 +110,7 @@
     switch(view) {
       case 'Rapporten':
         loadReports();
+        loadTenantsForUpload();
         break;
       case 'Admin':
         loadTenants();
@@ -178,6 +179,30 @@
     return [];
   }
 
+  // Load tenants for upload selector
+  async function loadTenantsForUpload() {
+    try {
+      const response = await apiCall('/tenants');
+      if (response && response.ok) {
+        const tenants = await response.json();
+        const select = document.getElementById('upload-tenant-select');
+        if (select) {
+          select.innerHTML = '<option value="">Selecteer tenant...</option>';
+          tenants.forEach(tenant => {
+            const option = document.createElement('option');
+            option.value = tenant.id;
+            option.textContent = tenant.name;
+            select.appendChild(option);
+          });
+        }
+        return tenants;
+      }
+    } catch (error) {
+      console.error('Failed to load tenants for upload:', error);
+    }
+    return [];
+  }
+
   // Update UI Functions
   function updateTenantsTable(tenants) {
     const table = document.querySelector('#tenants-table-body');
@@ -213,7 +238,7 @@
   }
 
   // Upload functionality
-  async function uploadReport(file) {
+  async function uploadReport(file, tenantId = null) {
     if (!file) {
       alert('Geen bestand geselecteerd');
       return;
@@ -222,6 +247,29 @@
     if (file.type !== 'application/pdf') {
       alert('Alleen PDF bestanden zijn toegestaan');
       return;
+    }
+
+    // For system owner, we need to get tenant_id from the selector
+    if (!tenantId) {
+      // Try to get current user info to determine if we need tenant_id
+      try {
+        const userResponse = await apiCall('/users/me');
+        if (userResponse && userResponse.ok) {
+          const user = await userResponse.json();
+          if (user.role === 'SYSTEM_OWNER') {
+            // System owner needs to select a tenant from the dropdown
+            const tenantSelect = document.getElementById('upload-tenant-select');
+            const selectedTenantId = tenantSelect.value;
+            if (!selectedTenantId) {
+              alert('Selecteer eerst een tenant (vereist voor System Owner)');
+              return;
+            }
+            return uploadReport(file, selectedTenantId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get user info:', error);
+      }
     }
 
     const formData = new FormData();
@@ -234,7 +282,13 @@
       progressBar.style.display = 'block';
       bar.style.width = '0%';
 
-      const response = await fetch(`${API_BASE_URL}/reports/`, {
+      // Build URL with tenant_id query parameter if needed
+      let url = `${API_BASE_URL}/reports/`;
+      if (tenantId) {
+        url += `?tenant_id=${encodeURIComponent(tenantId)}`;
+      }
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
@@ -435,7 +489,13 @@
     <!-- RAPPORTEN -->
     <section data-view="Rapporten">
       <div class="card">
-        <h3>Upload nieuw rapport (test)</h3>
+        <h3>Upload nieuw rapport</h3>
+        <div style="margin-bottom: 16px;">
+          <label>Selecteer tenant (voor System Owner):</label>
+          <select id="upload-tenant-select" style="margin-bottom: 12px;">
+            <option value="">Laden...</option>
+          </select>
+        </div>
         <div class="uploader" id="uploader">
           <p><strong>Sleep je bestand hierheen</strong> of klik om te kiezen</p>
           <input type="file" id="file-input" accept=".pdf" style="display: none;">
