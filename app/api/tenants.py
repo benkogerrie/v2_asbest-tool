@@ -85,11 +85,19 @@ async def create_tenant_with_admin(
     # Create admin user
     from app.schemas.user import UserCreate
     
-    admin_data = data.admin
-    admin_data['password'] = temp_password
-    admin_data['role'] = UserRole.ADMIN
-    admin_data['tenant_id'] = tenant.id
-    admin_data['is_verified'] = True
+    # Prepare admin data with all required fields
+    admin_data = {
+        'first_name': data.admin.get('first_name', ''),
+        'last_name': data.admin.get('last_name', ''),
+        'email': data.admin.get('email', ''),
+        'password': temp_password,  # Add the generated password
+        'role': UserRole.ADMIN,
+        'tenant_id': tenant.id,
+        'phone': data.admin.get('phone'),
+        'department': data.admin.get('department'),
+        'job_title': data.admin.get('job_title'),
+        'employee_id': data.admin.get('employee_id')
+    }
     
     # Validate admin data
     admin_create = UserCreate(**admin_data)
