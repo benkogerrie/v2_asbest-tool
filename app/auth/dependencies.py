@@ -1,26 +1,23 @@
 """
 Authentication and authorization dependencies.
 """
-from typing import Optional
 from fastapi import Depends, HTTPException, status
-from fastapi_users import BaseUserManager, FastAPIUsers
-from fastapi_users.authentication import AuthenticationBackend
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User, UserRole
-from app.auth.auth import fastapi_users, get_user_manager
+from app.auth.auth import fastapi_users
 
 
 async def get_current_user(
-    user: User = Depends(fastapi_users.current_user())
+    user: User = Depends(fastapi_users.current_user(active=True))
 ) -> User:
     """Get the current authenticated user."""
     return user
 
 
 async def get_current_active_user(
-    user: User = Depends(fastapi_users.current_user())
+    user: User = Depends(fastapi_users.current_user(active=True))
 ) -> User:
     """Get the current active user."""
     if not user.is_active:
