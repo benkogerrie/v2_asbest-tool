@@ -47,6 +47,16 @@ def wait_for_redis(max_retries=30, retry_delay=2):
 if __name__ == "__main__":
     logger.info("Starting RQ worker for report processing...")
     
+    # Start health server in background
+    try:
+        from worker.health import start_health_server
+        import threading
+        health_thread = threading.Thread(target=start_health_server, daemon=True)
+        health_thread.start()
+        logger.info("Health server started")
+    except Exception as e:
+        logger.warning(f"Failed to start health server: {e}")
+    
     try:
         # Test imports first
         logger.info("Testing imports...")
