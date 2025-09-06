@@ -63,7 +63,7 @@ async def create_tenant(
     return tenant
 
 
-@router.post("/with-admin")
+@router.post("/with-admin", response_model=TenantWithAdminResponse)
 async def create_tenant_with_admin(
     data: TenantWithAdminCreate,
     current_user: User = Depends(get_current_system_owner),
@@ -104,7 +104,9 @@ async def create_tenant_with_admin(
         admin_create = UserCreate(**admin_data)
         
         # Create user using FastAPI Users
-        user_manager = await anext(get_user_manager(session))
+        from app.auth.auth import get_user_db
+        user_db = await anext(get_user_db(session))
+        user_manager = await anext(get_user_manager(user_db))
         admin_user = await user_manager.create(admin_create)
         
         # Send invitation email
@@ -139,13 +141,10 @@ async def create_tenant_with_admin(
     except Exception as e:
         # Rollback tenant creation if user creation fails
         await session.rollback()
-        # Return detailed error for debugging
-        return {
-            "error": "Failed to create tenant with admin",
-            "details": str(e),
-            "type": type(e).__name__,
-            "debug": True
-        }
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create tenant with admin: {str(e)}"
+        )
 
 
 @router.get("/{tenant_id}", response_model=TenantRead)
