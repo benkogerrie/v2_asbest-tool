@@ -20,7 +20,7 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    user: User = Depends(get_current_user)
+    user: User = Depends(fastapi_users.current_user())
 ) -> User:
     """Get the current active user."""
     if not user.is_active:
