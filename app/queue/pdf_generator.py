@@ -235,5 +235,20 @@ def generate_conclusion_pdf(
                 logger.info("PDF generated successfully with minimal HTML")
                 return pdf_bytes
             except Exception as e3:
-                logger.error(f"All PDF generation strategies failed: {e3}")
-                raise Exception(f"PDF generation failed after all fallback attempts: {e3}")
+                logger.warning(f"All WeasyPrint strategies failed: {e3}, trying ReportLab fallback")
+                
+                # Strategy 4: Try ReportLab as ultimate fallback
+                try:
+                    from app.queue.simple_pdf_generator import generate_simple_pdf
+                    pdf_bytes = generate_simple_pdf(
+                        filename,
+                        summary,
+                        findings,
+                        report_id,
+                        timestamp
+                    )
+                    logger.info("PDF generated successfully with ReportLab fallback")
+                    return pdf_bytes
+                except Exception as e4:
+                    logger.error(f"All PDF generation strategies failed: {e4}")
+                    raise Exception(f"PDF generation failed after all fallback attempts: {e4}")
