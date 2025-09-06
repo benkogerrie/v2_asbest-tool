@@ -63,7 +63,7 @@ async def create_tenant(
     return tenant
 
 
-@router.post("/with-admin", response_model=TenantWithAdminResponse)
+@router.post("/with-admin")
 async def create_tenant_with_admin(
     data: TenantWithAdminCreate,
     current_user: User = Depends(get_current_system_owner),
@@ -140,10 +140,12 @@ async def create_tenant_with_admin(
         # Rollback tenant creation if user creation fails
         await session.rollback()
         # Return detailed error for debugging
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"DEBUG: {str(e)} | Type: {type(e).__name__}"
-        )
+        return {
+            "error": "Failed to create tenant with admin",
+            "details": str(e),
+            "type": type(e).__name__,
+            "debug": True
+        }
 
 
 @router.get("/{tenant_id}", response_model=TenantRead)
