@@ -3,7 +3,7 @@ Analysis API endpoints.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
@@ -19,11 +19,12 @@ router = APIRouter(prefix="/analyses", tags=["analyses"])
 async def get_latest_analysis(
     report_id: UUID,
     current_user: User = Depends(get_current_active_user),
-    session: Session = Depends(get_db)
+    session: AsyncSession = Depends(get_db)
 ):
     """Get the latest analysis for a report."""
     # First check if user has access to the report
-    report = session.query(Report).filter(Report.id == report_id).first()
+    result = await session.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     
@@ -31,9 +32,10 @@ async def get_latest_analysis(
     # For now, allow access to all reports
     
     # Get latest analysis
-    analysis = session.query(Analysis).filter(
+    result = await session.execute(select(Analysis).where(
         Analysis.report_id == report_id
-    ).order_by(Analysis.finished_at.desc()).first()
+    ).order_by(Analysis.finished_at.desc()))
+    analysis = result.scalar_one_or_none()
     
     if not analysis:
         return None

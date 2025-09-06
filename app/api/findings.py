@@ -4,7 +4,7 @@ Findings API endpoints.
 from fastapi import APIRouter, Depends, Query
 from uuid import UUID
 from typing import List, Literal, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
@@ -23,11 +23,12 @@ async def list_findings(
     severity: Optional[List[Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]]] = Query(default=None),
     rule_id: Optional[List[str]] = Query(default=None),
     current_user: User = Depends(get_current_active_user),
-    session: Session = Depends(get_db)
+    session: AsyncSession = Depends(get_db)
 ):
     """List findings for a report with optional filtering."""
     # First check if user has access to the report
-    report = session.query(Report).filter(Report.id == report_id).first()
+    result = await session.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     
@@ -35,23 +36,25 @@ async def list_findings(
     # For now, allow access to all reports
     
     # Get latest analysis for this report
-    latest_analysis = session.query(Analysis).filter(
+    result = await session.execute(select(Analysis).where(
         Analysis.report_id == report_id
-    ).order_by(Analysis.finished_at.desc()).first()
+    ).order_by(Analysis.finished_at.desc()))
+    latest_analysis = result.scalar_one_or_none()
     
     if not latest_analysis:
         return []
     
     # Query findings for the latest analysis
-    query = session.query(Finding).filter(Finding.analysis_id == latest_analysis.id)
+    query = select(Finding).where(Finding.analysis_id == latest_analysis.id)
     
     # Apply filters
     if severity:
-        query = query.filter(Finding.severity.in_(severity))
+        query = query.where(Finding.severity.in_(severity))
     if rule_id:
-        query = query.filter(Finding.rule_id.in_(rule_id))
+        query = query.where(Finding.rule_id.in_(rule_id))
     
-    findings = query.all()
+    result = await session.execute(query)
+    findings = result.scalars().all()
     
     return [{
         "id": str(f.id),
