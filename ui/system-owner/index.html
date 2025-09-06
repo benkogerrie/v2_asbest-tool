@@ -153,6 +153,8 @@
         console.log('Users loaded:', users);
         updateUsersTable(users);
         return users;
+      } else {
+        console.error('Failed to load users:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Failed to load users:', error);
@@ -208,6 +210,55 @@
         <td><span class="chip ${user.is_active ? 'ok' : 'bad'}">${user.is_active ? 'Actief' : 'Inactief'}</span></td>
       </tr>
     `).join('');
+  }
+
+  // Upload functionality
+  async function uploadReport(file) {
+    if (!file) {
+      alert('Geen bestand geselecteerd');
+      return;
+    }
+
+    if (file.type !== 'application/pdf') {
+      alert('Alleen PDF bestanden zijn toegestaan');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const progressBar = document.getElementById('upload-progress');
+      const bar = document.getElementById('upload-bar');
+      
+      progressBar.style.display = 'block';
+      bar.style.width = '0%';
+
+      const response = await fetch(`${API_BASE_URL}/reports/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        bar.style.width = '100%';
+        alert(`✅ Rapport "${file.name}" succesvol geüpload!\n\nStatus: ${result.status}\nID: ${result.id}`);
+        loadReports(); // Refresh reports list
+      } else {
+        const error = await response.json();
+        alert(`❌ Upload mislukt: ${error.detail || 'Onbekende fout'}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(`❌ Upload mislukt: ${error.message}`);
+    } finally {
+      setTimeout(() => {
+        document.getElementById('upload-progress').style.display = 'none';
+      }, 2000);
+    }
   }
 
   function updateReportsTable(reports) {
@@ -316,6 +367,40 @@
     
     // Add form submit handler
     document.getElementById('tenant-form').addEventListener('submit', createTenantWithAdmin);
+    
+    // Setup file upload
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+      fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          uploadReport(file);
+        }
+      });
+    }
+    
+    // Setup drag and drop
+    const uploader = document.getElementById('uploader');
+    if (uploader) {
+      uploader.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = '#6ea8fe';
+      });
+      
+      uploader.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = 'var(--border)';
+      });
+      
+      uploader.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = 'var(--border)';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          uploadReport(file);
+        }
+      });
+    }
   };
 </script>
 </head>
@@ -351,30 +436,24 @@
     <section data-view="Rapporten">
       <div class="card">
         <h3>Upload nieuw rapport (test)</h3>
-        <div class="uploader">
+        <div class="uploader" id="uploader">
           <p><strong>Sleep je bestand hierheen</strong> of klik om te kiezen</p>
-          <button class="btn primary">Upload</button>
+          <input type="file" id="file-input" accept=".pdf" style="display: none;">
+          <button class="btn primary" onclick="document.getElementById('file-input').click()">Kies bestand</button>
+          <div class="progress" id="upload-progress" style="display: none;">
+            <div class="bar" id="upload-bar"></div>
+          </div>
         </div>
       </div>
       <div class="card">
         <h3>Rapporten <span style="float:right"><label class="muted">Filter tenant</label><select><option>Alle</option><option>Bedrijf Y</option><option>Gemeente X</option></select></span></h3>
         <table>
-          <tr><th>Bestandsnaam</th><th>Tenant</th><th>Status</th><th>#Findings</th><th>Score</th><th>Uploaddatum</th><th>Acties</th></tr>
-          <tr>
-            <td><a onclick="show('Rapportdetail')">project-123.pdf</a></td><td>Bedrijf Y</td>
-            <td><span class="chip ok">Done</span></td><td>2</td><td>89</td><td>26-08-2025</td>
-            <td>
-              <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
-              <button class="icon-btn" title="Herstel">♻️</button>
-            </td>
-          </tr>
-          <tr>
-            <td><a onclick="show('Rapportdetail')">fout-rapport.pdf</a></td><td>Gemeente X</td>
-            <td><span class="chip deleted">Verwijderd</span></td><td>—</td><td>—</td><td>25-08-2025</td>
-            <td>
-              <button class="icon-btn" title="Herstel" onclick="confirmRestore()">♻️</button>
-            </td>
-          </tr>
+          <thead>
+            <tr><th>Bestandsnaam</th><th>Tenant</th><th>Status</th><th>#Findings</th><th>Score</th><th>Uploaddatum</th><th>Acties</th></tr>
+          </thead>
+          <tbody>
+            <!-- Dynamically populated -->
+          </tbody>
         </table>
       </div>
     </section>
@@ -516,9 +595,12 @@
           <h3>Users (filter op tenant)</h3>
           <select><option>Alle</option><option>Bedrijf Y</option><option>Gemeente X</option></select>
           <table style="margin-top:12px">
-            <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Status</th></tr>
-            <tr><td>Jan</td><td>de Vries</td><td>jan@bedrijf-y.nl</td><td>Admin</td><td><span class="chip ok">Actief</span></td></tr>
-            <tr><td>Sara</td><td>Bakker</td><td>sara@gemeente-x.nl</td><td>User</td><td><span class="chip ok">Actief</span></td></tr>
+            <thead>
+              <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <!-- Dynamically populated -->
+            </tbody>
           </table>
         </div>
       </div>
