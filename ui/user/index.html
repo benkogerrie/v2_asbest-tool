@@ -123,11 +123,235 @@
     try {
       const reports = await apiCall('/reports');
       console.log('Reports loaded:', reports);
-      // TODO: Update UI with real data
+      updateReportsTable(reports);
       return reports;
     } catch (error) {
       console.error('Failed to load reports:', error);
       return [];
+    }
+  }
+
+  // Update reports table with real data
+  function updateReportsTable(reports) {
+    const tbody = document.querySelector('table tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    reports.forEach(report => {
+      const row = document.createElement('tr');
+      
+      // Status chip
+      let statusChip = '';
+      if (report.status === 'DONE') {
+        statusChip = '<span class="chip ok">Done</span>';
+      } else if (report.status === 'PROCESSING') {
+        statusChip = '<span class="chip warn">Processing</span><div class="progress" style="margin-top:6px;height:4px"><div class="bar" style="width:40%"></div></div>';
+      } else if (report.status === 'FAILED') {
+        statusChip = '<span class="chip bad">Failed</span>';
+      } else {
+        statusChip = '<span class="chip">' + report.status + '</span>';
+      }
+      
+      // Format date
+      const uploadDate = new Date(report.created_at).toLocaleDateString('nl-NL', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      row.innerHTML = `
+        <td><a onclick="showReportDetail('${report.id}')">${report.filename}</a></td>
+        <td>${statusChip}</td>
+        <td>${report.finding_count || '—'}</td>
+        <td>${report.score || '—'}</td>
+        <td>${uploadDate}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
+          <button class="icon-btn" title="Download rapport" onclick="downloadSource('${report.id}')">⬇️</button>
+          <button class="icon-btn" title="Download conclusie & aanbevelingen (PDF)" onclick="downloadConclusion('${report.id}')" ${report.status !== 'DONE' ? 'disabled' : ''}>📝</button>
+          <button class="icon-btn" title="Verwijder" onclick="confirmDelete('${report.id}')">🗑️</button>
+        </td>
+      `;
+      
+      tbody.appendChild(row);
+    });
+  }
+
+  // Load report details
+  async function loadReportDetail(reportId) {
+    try {
+      const report = await apiCall(`/reports/${reportId}`);
+      const analysis = await apiCall(`/analyses/reports/${reportId}/analysis`);
+      const findings = await apiCall(`/findings/reports/${reportId}/findings`);
+      
+      return { report, analysis, findings };
+    } catch (error) {
+      console.error('Failed to load report detail:', error);
+      return null;
+    }
+  }
+
+  // Show report detail view
+  async function showReportDetail(reportId) {
+    const data = await loadReportDetail(reportId);
+    if (!data) {
+      alert('Kon rapport details niet laden');
+      return;
+    }
+    
+    const { report, analysis, findings } = data;
+    
+    // Update the report detail view
+    const detailView = document.querySelector('[data-view="Rapportdetail"]');
+    if (!detailView) return;
+    
+    // Update header
+    const header = detailView.querySelector('h3');
+    if (header) {
+      header.textContent = `Rapport ${report.id} — ${report.filename}`;
+    }
+    
+    // Update summary
+    const summaryElement = document.getElementById('analysis-summary');
+    const metaElement = document.getElementById('analysis-meta');
+    if (summaryElement) {
+      summaryElement.textContent = report.summary || 'Geen samenvatting beschikbaar';
+    }
+    if (metaElement && analysis) {
+      const uploadDate = new Date(report.created_at).toLocaleDateString('nl-NL');
+      metaElement.textContent = `Geüpload op ${uploadDate} door ${CURRENT_USER.full} • Score: ${analysis.score} • Engine: ${analysis.engine} ${analysis.engine_version}`;
+    }
+    
+    // Update findings
+    const findingsContainer = document.getElementById('findings-container');
+    if (findingsContainer) {
+      if (findings.length > 0) {
+        const findingsList = document.createElement('ul');
+        findings.forEach(finding => {
+          const li = document.createElement('li');
+          li.style.marginBottom = '8px';
+          
+          // Severity color
+          let severityColor = '#cdd4ea';
+          if (finding.severity === 'CRITICAL') severityColor = '#ffb1b1';
+          else if (finding.severity === 'HIGH') severityColor = '#ffe28a';
+          else if (finding.severity === 'MEDIUM') severityColor = '#b7f7c9';
+          
+          li.innerHTML = `
+            <strong style="color: ${severityColor}">${finding.rule_id} — ${finding.section || 'Algemeen'} (${finding.severity}):</strong> 
+            ${finding.message}
+            ${finding.suggestion ? `<br><em style="color: var(--muted); font-size: 12px;">Suggestion: ${finding.suggestion}</em>` : ''}
+          `;
+          findingsList.appendChild(li);
+        });
+        findingsContainer.innerHTML = '';
+        findingsContainer.appendChild(findingsList);
+      } else {
+        findingsContainer.innerHTML = '<p>Geen bevindingen gevonden.</p>';
+      }
+    }
+    
+    // Update download button
+    const downloadBtn = detailView.querySelector('.btn.primary');
+    if (downloadBtn) {
+      downloadBtn.onclick = () => downloadConclusion(reportId);
+      downloadBtn.disabled = report.status !== 'DONE';
+    }
+    
+    // Add reprocess button if needed
+    let reprocessBtn = detailView.querySelector('.btn[onclick*="reprocess"]');
+    if (!reprocessBtn && report.status === 'DONE') {
+      reprocessBtn = document.createElement('button');
+      reprocessBtn.className = 'btn';
+      reprocessBtn.textContent = 'Opnieuw analyseren';
+      reprocessBtn.onclick = () => reprocessReport(reportId);
+      reprocessBtn.style.marginLeft = '8px';
+      
+      const buttonContainer = detailView.querySelector('.card > div[style*="margin:8px 0 14px"]');
+      if (buttonContainer) {
+        buttonContainer.appendChild(reprocessBtn);
+      }
+    }
+    
+    show('Rapportdetail');
+  }
+
+  // Download source file
+  async function downloadSource(reportId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/reports/${reportId}/source`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Download failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `source_${reportId}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download mislukt');
+    }
+  }
+
+  // Download conclusion file
+  async function downloadConclusion(reportId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/reports/${reportId}/conclusion`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Download failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `conclusie_${reportId}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download mislukt');
+    }
+  }
+
+  // Reprocess report
+  async function reprocessReport(reportId) {
+    if (!confirm('Weet je zeker dat je dit rapport opnieuw wilt analyseren?')) {
+      return;
+    }
+    
+    try {
+      const result = await apiCall(`/reports/${reportId}/reprocess`, {
+        method: 'POST'
+      });
+      
+      alert('Rapport wordt opnieuw geanalyseerd. Je wordt doorgestuurd naar de rapportenlijst.');
+      show('Rapporten');
+      await loadReports(); // Refresh the list
+    } catch (error) {
+      console.error('Reprocess failed:', error);
+      alert('Opnieuw analyseren mislukt');
+    }
+  }
+
+  // Confirm delete
+  function confirmDelete(reportId) {
+    if (confirm('Weet je zeker dat je dit rapport wilt verwijderen?')) {
+      // TODO: Implement delete functionality
+      alert('Verwijderen nog niet geïmplementeerd');
     }
   }
 
@@ -139,23 +363,106 @@
     if(link) link.classList.add('active');
     const crumb = document.getElementById('crumb');
     if(crumb) crumb.textContent = `${CURRENT_USER.full} / User / ${view}`;
+    
+    // Manage auto-refresh based on view
+    if (view === 'Rapporten') {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
   }
 
-  function startUpload(success=true){
-    const bar=document.querySelector('.bar'); let w=0;
-    bar.style.width='0%';
-    const id=setInterval(()=>{
-      w+=12; bar.style.width=w+'%';
-      if(w>=100){
+  // Real file upload functionality
+  async function startUpload(file = null) {
+    if (!file) {
+      // Show file picker
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf,.docx';
+      input.onchange = (e) => {
+        if (e.target.files[0]) {
+          startUpload(e.target.files[0]);
+        }
+      };
+      input.click();
+      return;
+    }
+    
+    // Validate file
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      alert('Bestand is te groot. Maximum 50MB toegestaan.');
+      return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.pdf') && !file.name.toLowerCase().endsWith('.docx')) {
+      alert('Alleen PDF en DOCX bestanden zijn toegestaan.');
+      return;
+    }
+    
+    const bar = document.querySelector('.bar');
+    const errorDiv = document.getElementById('upload-error');
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    // Show progress
+    bar.style.width = '0%';
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${API_BASE_URL}/reports/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Simulate progress
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 10;
+        bar.style.width = progress + '%';
+        
+        if (progress >= 100) {
+          clearInterval(progressInterval);
+          alert(`Upload succesvol — rapport aangemaakt (${result.id})`);
+          show('Rapporten');
+          loadReports(); // Refresh the list
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('Upload failed:', error);
+      bar.style.width = '0%';
+      if (errorDiv) errorDiv.style.display = 'block';
+    }
+  }
+
+  // Legacy function for testing
+  function startUploadTest(success = true) {
+    const bar = document.querySelector('.bar');
+    let w = 0;
+    bar.style.width = '0%';
+    const id = setInterval(() => {
+      w += 12;
+      bar.style.width = w + '%';
+      if (w >= 100) {
         clearInterval(id);
-        if(success){
+        if (success) {
           alert('Upload succesvol — rapport aangemaakt (#RPT-2025-0042)');
           show('Rapporten');
         } else {
-          document.getElementById('upload-error').style.display='block';
+          document.getElementById('upload-error').style.display = 'block';
         }
       }
-    },200);
+    }, 200);
   }
 
   function confirmDelete(){
@@ -191,6 +498,27 @@
     return true;
   }
 
+  // Auto-refresh for processing reports
+  let refreshInterval;
+  
+  function startAutoRefresh() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    
+    refreshInterval = setInterval(async () => {
+      const currentView = document.querySelector('[data-view]:not([style*="display:none"])');
+      if (currentView && currentView.getAttribute('data-view') === 'Rapporten') {
+        await loadReports();
+      }
+    }, 5000); // Refresh every 5 seconds
+  }
+  
+  function stopAutoRefresh() {
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      refreshInterval = null;
+    }
+  }
+
   // Initialize app
   window.onload=async ()=>{
     // Check authentication first
@@ -206,6 +534,9 @@
     
     // Load initial data
     await loadReports();
+    
+    // Start auto-refresh
+    startAutoRefresh();
     
     show('Rapporten');
   };
@@ -240,14 +571,14 @@
     <section data-view="Rapporten">
       <div class="card">
         <h3>Upload nieuw rapport</h3>
-        <div class="uploader">
+        <div class="uploader" onclick="startUpload()" style="cursor: pointer;">
           <p><strong>Sleep je PDF/DOCX hierheen</strong> of tik om te kiezen</p>
           <p class="muted">Max 50 MB • Toegestaan: .pdf, .docx</p>
-          <button class="btn primary" onclick="startUpload(true)">Start upload</button>
-          <button class="btn" onclick="startUpload(false)">Simuleer fout</button>
+          <button class="btn primary" onclick="event.stopPropagation(); startUpload()">Bestand kiezen</button>
+          <button class="btn" onclick="event.stopPropagation(); startUploadTest(false)">Simuleer fout</button>
           <div class="progress"><div class="bar"></div></div>
           <div id="upload-error" style="display:none;margin-top:10px;color:#ffb1b1">
-            Upload mislukt. <button class="btn" onclick="startUpload(true)">Opnieuw proberen</button>
+            Upload mislukt. <button class="btn" onclick="startUpload()">Opnieuw proberen</button>
           </div>
         </div>
       </div>
@@ -255,34 +586,12 @@
       <div class="card">
         <h3>Rapporten</h3>
         <table>
-          <tr><th>Bestandsnaam (project)</th><th>Status</th><th>#Findings</th><th>Score</th><th>Uploaddatum</th><th>Acties</th></tr>
-          <tr>
-            <td><a onclick="show('Rapportdetail')">project-123_Kade-12-Amsterdam.pdf</a></td>
-            <td><span class="chip ok">Done</span></td>
-            <td>2</td><td>89</td><td>26-08-2025 18:52</td>
-            <td>
-              <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
-              <button class="icon-btn" title="Download rapport">⬇️</button>
-              <button class="icon-btn" title="Download conclusie & aanbevelingen (PDF)">📝</button>
-              <button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>
-            </td>
-          </tr>
-          <tr>
-            <td><a onclick="show('Rapportdetail')">project-124_Rivierstraat-8-Utrecht.docx</a></td>
-            <td><span class="chip warn">Processing</span><div class="progress" style="margin-top:6px;height:4px"><div class="bar" style="width:40%"></div></div></td>
-            <td>—</td><td>—</td><td>26-08-2025 18:45</td>
-            <td>
-              <button class="icon-btn" title="Bekijk" disabled>👁</button>
-            </td>
-          </tr>
-          <tr>
-            <td><a onclick="show('Rapportdetail')">project-125_Fouttest.pdf</a></td>
-            <td><span class="chip bad">Failed</span></td>
-            <td>—</td><td>—</td><td>26-08-2025 17:12</td>
-            <td>
-              <button class="icon-btn" title="Opnieuw uploaden" onclick="startUpload(true)">🔄</button>
-            </td>
-          </tr>
+          <thead>
+            <tr><th>Bestandsnaam (project)</th><th>Status</th><th>#Findings</th><th>Score</th><th>Uploaddatum</th><th>Acties</th></tr>
+          </thead>
+          <tbody>
+            <!-- Reports will be loaded dynamically -->
+          </tbody>
         </table>
       </div>
     </section>
@@ -300,18 +609,17 @@
         </div>
 
         <div class="card" style="background:#0d1224">
-          <h3>Samenvatting</h3>
-          <p>Rapport is grotendeels compleet; aanvulling nodig voor postcode en maatregelen 2A. Verwachte doorlooptijd aanvulling: 1 werkdag.</p>
-          <p class="muted">Geüpload op 26-08-2025 door S. Jansen</p>
+          <h3>Analyse Samenvatting</h3>
+          <p id="analysis-summary">Laden...</p>
+          <p class="muted" id="analysis-meta">Laden...</p>
         </div>
 
         <div class="card" style="margin-top:12px">
           <h3>Bevindingen</h3>
-          <ul>
-            <li><strong>R001 — Projectadres (Major):</strong> Postcode ontbreekt op p.2.</li>
-            <li><strong>R012 — RSKL ↔ maatregelen (Critical):</strong> 2A genoemd; maatregelen onvoldoende gespecificeerd.</li>
-          </ul>
-          <p class="muted">*De volledige onderbouwing is opgenomen in de PDF \"Conclusie & aanbevelingen\".*</p>
+          <div id="findings-container">
+            <p>Laden...</p>
+          </div>
+          <p class="muted">*De volledige onderbouwing is opgenomen in de PDF "Conclusie & aanbevelingen".*</p>
         </div>
       </div>
     </section>
