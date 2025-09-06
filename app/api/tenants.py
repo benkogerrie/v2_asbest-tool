@@ -83,31 +83,36 @@ async def create_tenant_with_admin(
         # Generate temporary password
         temp_password = email_service.generate_temp_password()
         
-        # Create admin user using FastAPI Users schema
-        from fastapi_users import schemas
+        # Create admin user manually
+        from app.auth.auth import get_user_manager
+        from app.models.user import User
+        import uuid
         
-        # Prepare admin data with all required fields
-        admin_data = {
-            'email': data.admin.get('email', ''),
-            'password': temp_password,
-            'first_name': data.admin.get('first_name', ''),
-            'last_name': data.admin.get('last_name', ''),
-            'role': UserRole.ADMIN,
-            'tenant_id': tenant.id,
-            'phone': data.admin.get('phone'),
-            'department': data.admin.get('department'),
-            'job_title': data.admin.get('job_title'),
-            'employee_id': data.admin.get('employee_id')
-        }
+        # Create user object manually
+        admin_user = User(
+            id=uuid.uuid4(),
+            email=data.admin.get('email', ''),
+            first_name=data.admin.get('first_name', ''),
+            last_name=data.admin.get('last_name', ''),
+            role=UserRole.ADMIN,
+            tenant_id=tenant.id,
+            phone=data.admin.get('phone'),
+            department=data.admin.get('department'),
+            job_title=data.admin.get('job_title'),
+            employee_id=data.admin.get('employee_id'),
+            is_active=True,
+            is_superuser=False,
+            is_verified=False
+        )
         
-        # Use FastAPI Users BaseUserCreate schema
-        admin_create = schemas.BaseUserCreate(**admin_data)
+        # Hash the password using the user manager
+        user_manager = await anext(get_user_manager(session))
+        admin_user.hashed_password = user_manager.password_helper.hash(temp_password)
         
-        # Create user using FastAPI Users
-        from app.auth.auth import get_user_db
-        user_db = await anext(get_user_db(session))
-        user_manager = await anext(get_user_manager(user_db))
-        admin_user = await user_manager.create(admin_create)
+        # Add to session and commit
+        session.add(admin_user)
+        await session.commit()
+        await session.refresh(admin_user)
         
         # Send invitation email
         admin_name = f"{admin_user.first_name} {admin_user.last_name}"
