@@ -7,6 +7,7 @@ from fastapi_users.authentication import (
     AuthenticationBackend,
     BearerTransport,
     JWTStrategy,
+    Authenticator,  # ⬅️ nieuw
 )
 from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,3 +68,6 @@ fastapi_users = FastAPIUsers[User, uuid.UUID](
     get_user_manager,
     [auth_backend],
 )
+
+# ⬇️ Dit is de cruciale stap
+authenticator = Authenticator([auth_backend], get_user_manager)
