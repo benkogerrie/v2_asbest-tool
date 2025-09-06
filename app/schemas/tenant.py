@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
-from app.schemas.user import UserCreate
+# Import moved to avoid circular import
 
 
 class TenantBase(BaseModel):
@@ -49,7 +49,7 @@ class TenantRead(TenantBase):
 class TenantWithAdminCreate(BaseModel):
     """Schema for creating a tenant with an admin user."""
     tenant: TenantCreate
-    admin: UserCreate
+    admin: dict  # Will be validated as UserCreate in the endpoint
 
 
 class TenantWithAdminResponse(BaseModel):

@@ -83,15 +83,20 @@ async def create_tenant_with_admin(
     temp_password = email_service.generate_temp_password()
     
     # Create admin user
-    admin_data = data.admin.model_dump()
+    from app.schemas.user import UserCreate
+    
+    admin_data = data.admin
     admin_data['password'] = temp_password
     admin_data['role'] = UserRole.ADMIN
     admin_data['tenant_id'] = tenant.id
     admin_data['is_verified'] = True
     
+    # Validate admin data
+    admin_create = UserCreate(**admin_data)
+    
     # Create user using FastAPI Users
     user_manager = await anext(get_user_manager(session))
-    admin_user = await user_manager.create(admin_data)
+    admin_user = await user_manager.create(admin_create)
     
     # Send invitation email
     admin_name = f"{admin_user.first_name} {admin_user.last_name}"
