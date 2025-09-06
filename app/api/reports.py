@@ -401,3 +401,57 @@ async def download_conclusion(
             status_code=500,
             detail="Failed to download conclusion file"
         )
+
+
+@router.post("/{report_id}/reprocess")
+async def reprocess_report(
+    report_id: str,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """Reprocess a report with new analysis."""
+    from app.services.reports import ReportService
+    
+    # Validate report_id format
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
+    
+    # Check if report exists and user has access
+    service = ReportService(session)
+    report = await service.get_report_for_download(report_id, current_user)
+    
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
+    
+    # Enqueue reprocessing job
+    try:
+        # Check Redis availability before enqueuing
+        redis_conn().ping()
+        job = reports_queue().enqueue(
+            "app.queue.jobs.process_report",
+            report_id=report_id,
+            retry=Retry(max=settings.job_max_retries),
+            job_timeout=settings.job_timeout_seconds
+        )
+        logger.info(f"Reprocessing job enqueued for report {report_id}: {job.id}")
+        
+        return {
+            "job_id": job.id,
+            "status": "ENQUEUED",
+            "message": "Report reprocessing started"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to enqueue reprocessing job for report {report_id}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Queue service unavailable - reprocessing cannot be scheduled"
+        )
