@@ -11,7 +11,7 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, get_async_session_local
 from app.models.user import User
 
 
@@ -37,8 +37,9 @@ class UserManager(BaseUserManager[User, str]):
         print(f"Verification requested for user {user.id}. Verification token: {token}")
 
 
-async def get_user_db(session: AsyncSession = Depends(get_db)):
-    yield SQLAlchemyUserDatabase(session, User)
+async def get_user_db():
+    async with get_async_session_local()() as session:
+        yield SQLAlchemyUserDatabase(session, User)
 
 
 async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
