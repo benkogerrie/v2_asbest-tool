@@ -29,7 +29,7 @@ async def get_current_active_user(
 
 
 async def get_current_system_owner(
-    user: User = Depends(get_current_active_user)
+    user: User = Depends(fastapi_users.current_user(active=True))
 ) -> User:
     """Get the current user if they are a system owner."""
     if user.role != UserRole.SYSTEM_OWNER:
@@ -41,7 +41,7 @@ async def get_current_system_owner(
 
 
 async def get_current_admin_or_system_owner(
-    user: User = Depends(get_current_active_user)
+    user: User = Depends(fastapi_users.current_user(active=True))
 ) -> User:
     """Get the current user if they are an admin or system owner."""
     if user.role not in [UserRole.ADMIN, UserRole.SYSTEM_OWNER]:
@@ -53,7 +53,7 @@ async def get_current_admin_or_system_owner(
 
 
 async def get_current_tenant_user(
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(fastapi_users.current_user(active=True)),
     session: AsyncSession = Depends(get_db)
 ) -> User:
     """Get the current user if they belong to a tenant."""
@@ -69,7 +69,7 @@ async def get_current_tenant_user(
 
 
 async def get_current_tenant_admin(
-    user: User = Depends(get_current_tenant_user)
+    user: User = Depends(fastapi_users.current_user(active=True))
 ) -> User:
     """Get the current user if they are a tenant admin."""
     if user.role == UserRole.SYSTEM_OWNER:
