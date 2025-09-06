@@ -188,20 +188,52 @@ def generate_conclusion_pdf(
         findings=findings
     )
     
-    # Generate PDF
+    # Generate PDF with multiple fallback strategies
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Strategy 1: Try with CSS and font config
     try:
         font_config = FontConfiguration()
         html = HTML(string=html_content)
         css = CSS(string='', font_config=font_config)
-        
         pdf_bytes = html.write_pdf(stylesheets=[css], font_config=font_config)
+        logger.info("PDF generated successfully with CSS and font config")
         return pdf_bytes
-    except Exception as e:
-        # Fallback: simple PDF generation without CSS
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f"PDF generation with CSS failed: {e}, trying simple version")
+    except Exception as e1:
+        logger.warning(f"PDF generation with CSS failed: {e1}, trying simple version")
         
-        html = HTML(string=html_content)
-        pdf_bytes = html.write_pdf()
-        return pdf_bytes
+        # Strategy 2: Try simple PDF without CSS
+        try:
+            html = HTML(string=html_content)
+            pdf_bytes = html.write_pdf()
+            logger.info("PDF generated successfully with simple method")
+            return pdf_bytes
+        except Exception as e2:
+            logger.warning(f"Simple PDF generation failed: {e2}, trying minimal HTML")
+            
+            # Strategy 3: Try with minimal HTML (no complex styling)
+            try:
+                minimal_html = f"""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Conclusie</title></head>
+                <body>
+                    <h1>Conclusie & Aanbevelingen</h1>
+                    <p><strong>Bestandsnaam:</strong> {filename}</p>
+                    <p><strong>Rapport ID:</strong> {report_id}</p>
+                    <p><strong>Verwerkt op:</strong> {timestamp.strftime('%d-%m-%Y %H:%M:%S')}</p>
+                    <h2>Samenvatting</h2>
+                    <p>{summary}</p>
+                    <h2>Bevindingen ({len(findings)} gevonden)</h2>
+                    {"".join([f"<p><strong>{f['code']} - {f['severity']}:</strong> {f['title']}<br>{f['detail_text']}</p>" for f in findings])}
+                </body>
+                </html>
+                """
+                html = HTML(string=minimal_html)
+                pdf_bytes = html.write_pdf()
+                logger.info("PDF generated successfully with minimal HTML")
+                return pdf_bytes
+            except Exception as e3:
+                logger.error(f"All PDF generation strategies failed: {e3}")
+                raise Exception(f"PDF generation failed after all fallback attempts: {e3}")
