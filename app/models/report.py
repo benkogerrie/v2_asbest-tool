@@ -42,6 +42,8 @@ class Report(Base):
     finding_count = Column(Integer, default=0, nullable=False)
     summary = Column(Text, nullable=True)
     findings_json = Column(JSON, nullable=True)
+    analysis_version = Column(Text, nullable=True)
+    analysis_duration_ms = Column(Integer, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     source_object_key = Column(String, nullable=False)
     conclusion_object_key = Column(String, nullable=True)
