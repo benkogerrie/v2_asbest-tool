@@ -178,7 +178,7 @@
 
   // Update UI Functions
   function updateTenantsTable(tenants) {
-    const table = document.querySelector('#tenants table tbody');
+    const table = document.querySelector('#tenants-table-body');
     if (!table) return;
     
     table.innerHTML = tenants.map(tenant => `
@@ -187,6 +187,10 @@
         <td>${tenant.kvk || '-'}</td>
         <td>${tenant.contact_email || '-'}</td>
         <td>${tenant.user_count || 0}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="viewTenant('${tenant.id}')">👁</button>
+          <button class="icon-btn" title="Bewerk" onclick="editTenant('${tenant.id}')">✏️</button>
+        </td>
       </tr>
     `).join('');
   }
@@ -245,9 +249,73 @@
     return date.toLocaleDateString('nl-NL');
   }
   
+  // Tenant Management Functions
+  function resetTenantForm() {
+    document.getElementById('tenant-form').reset();
+  }
+  
+  async function createTenantWithAdmin(event) {
+    event.preventDefault();
+    
+    const formData = {
+      tenant: {
+        name: document.getElementById('tenant-name').value,
+        kvk: document.getElementById('tenant-kvk').value,
+        contact_email: document.getElementById('tenant-email').value,
+        phone: document.getElementById('tenant-phone').value,
+        address: document.getElementById('tenant-address').value,
+        website: document.getElementById('tenant-website').value,
+        industry: document.getElementById('tenant-industry').value
+      },
+      admin: {
+        first_name: document.getElementById('admin-first').value,
+        last_name: document.getElementById('admin-last').value,
+        email: document.getElementById('admin-email').value,
+        phone: document.getElementById('admin-phone').value,
+        job_title: document.getElementById('admin-title').value,
+        department: document.getElementById('admin-department').value,
+        role: 'ADMIN'
+      }
+    };
+    
+    try {
+      const response = await apiCall('/tenants/with-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response && response.ok) {
+        const result = await response.json();
+        alert(`✅ Tenant "${result.tenant.name}" en admin "${result.admin.first_name} ${result.admin.last_name}" succesvol aangemaakt!\n\nTijdelijk wachtwoord: ${result.temp_password}\nE-mail uitnodiging: ${result.invitation_sent ? 'Verzonden' : 'Niet verzonden'}`);
+        resetTenantForm();
+        loadTenants(); // Refresh tenants list
+      } else {
+        const error = await response.json();
+        alert(`❌ Fout bij aanmaken: ${error.detail || 'Onbekende fout'}`);
+      }
+    } catch (error) {
+      console.error('Failed to create tenant with admin:', error);
+      alert('❌ Fout bij aanmaken van tenant en admin');
+    }
+  }
+  
+  function viewTenant(tenantId) {
+    alert(`Bekijk tenant ${tenantId} - Functionaliteit komt later`);
+  }
+  
+  function editTenant(tenantId) {
+    alert(`Bewerk tenant ${tenantId} - Functionaliteit komt later`);
+  }
+
   window.onload=()=>{
     checkApiHealth();
     show('Rapporten');
+    
+    // Add form submit handler
+    document.getElementById('tenant-form').addEventListener('submit', createTenantWithAdmin);
   };
 </script>
 </head>
@@ -347,11 +415,98 @@
 
       <div id="tenants" class="admin-tab">
         <div class="card">
-          <h3>Tenants</h3>
+          <h3>Nieuwe Tenant + Admin</h3>
+          <form id="tenant-form">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Bedrijfsnaam *</label>
+                <input type="text" id="tenant-name" placeholder="Bedrijf Z" required>
+              </div>
+              <div>
+                <label>KvK nummer *</label>
+                <input type="text" id="tenant-kvk" placeholder="12345678" required>
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Contact e-mail *</label>
+                <input type="email" id="tenant-email" placeholder="info@bedrijf-z.nl" required>
+              </div>
+              <div>
+                <label>Telefoon</label>
+                <input type="tel" id="tenant-phone" placeholder="+31 20 123 4567">
+              </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <label>Adres</label>
+              <input type="text" id="tenant-address" placeholder="Straat 1, 1234 AB Plaats">
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Website</label>
+                <input type="url" id="tenant-website" placeholder="https://www.bedrijf-z.nl">
+              </div>
+              <div>
+                <label>Branche</label>
+                <input type="text" id="tenant-industry" placeholder="Bouw & Constructie">
+              </div>
+            </div>
+            
+            <hr style="margin: 20px 0; border: 1px solid var(--border);">
+            
+            <h4>Tenant Admin Gegevens</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Voornaam *</label>
+                <input type="text" id="admin-first" placeholder="Jan" required>
+              </div>
+              <div>
+                <label>Achternaam *</label>
+                <input type="text" id="admin-last" placeholder="de Vries" required>
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>E-mail *</label>
+                <input type="email" id="admin-email" placeholder="jan@bedrijf-z.nl" required>
+              </div>
+              <div>
+                <label>Telefoon</label>
+                <input type="tel" id="admin-phone" placeholder="+31 6 123 45678">
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Functietitel</label>
+                <input type="text" id="admin-title" placeholder="Project Manager">
+              </div>
+              <div>
+                <label>Afdeling</label>
+                <input type="text" id="admin-department" placeholder="Bouw & Onderhoud">
+              </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+              <button type="submit" class="btn primary">🚀 Tenant + Admin Aanmaken</button>
+              <button type="button" class="btn" onclick="resetTenantForm()">Reset</button>
+            </div>
+          </form>
+        </div>
+        
+        <div class="card">
+          <h3>Bestaande Tenants</h3>
           <table>
-            <tr><th>Naam</th><th>KvK</th><th>Contact</th><th>#Users</th></tr>
-            <tr><td>Bedrijf Y</td><td>12345678</td><td>info@bedrijf-y.nl</td><td>5</td></tr>
-            <tr><td>Gemeente X</td><td>87654321</td><td>info@gemeente-x.nl</td><td>12</td></tr>
+            <thead>
+              <tr><th>Naam</th><th>KvK</th><th>Contact</th><th>#Users</th><th>Acties</th></tr>
+            </thead>
+            <tbody id="tenants-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
           </table>
         </div>
       </div>

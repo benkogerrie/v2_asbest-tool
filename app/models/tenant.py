@@ -14,6 +14,13 @@ class Tenant(Base):
     name = Column(String, nullable=False)
     kvk = Column(String, nullable=False)
     contact_email = Column(String, nullable=False)
+    address = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    employee_count = Column(String, nullable=True)
+    founded_year = Column(String, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     

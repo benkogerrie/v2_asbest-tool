@@ -28,10 +28,6 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False)
-    phone = Column(String, nullable=True)
-    department = Column(String, nullable=True)
-    job_title = Column(String, nullable=True)
-    employee_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships

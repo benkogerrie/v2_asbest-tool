@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
-from app.schemas.tenant import TenantCreate, TenantRead, TenantUpdate, TenantWithAdminCreate, TenantWithAdminResponse
+from app.schemas.tenant import TenantCreate, TenantRead, TenantUpdate
 from app.auth.dependencies import get_current_system_owner, get_current_tenant_user
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
@@ -61,66 +61,6 @@ async def create_tenant(
     await session.commit()
     await session.refresh(tenant)
     return tenant
-
-
-@router.post("/with-admin", response_model=TenantWithAdminResponse)
-async def create_tenant_with_admin(
-    data: TenantWithAdminCreate,
-    current_user: User = Depends(get_current_system_owner),
-    session: AsyncSession = Depends(get_db)
-):
-    """Create a new tenant with an admin user (system owner only)."""
-    from app.services.email import email_service
-    from app.auth.auth import get_user_manager
-    
-    # Create tenant
-    tenant = Tenant(**data.tenant.model_dump())
-    session.add(tenant)
-    await session.commit()
-    await session.refresh(tenant)
-    
-    # Generate temporary password
-    temp_password = email_service.generate_temp_password()
-    
-    # Create admin user
-    admin_data = data.admin.model_dump()
-    admin_data['password'] = temp_password
-    admin_data['role'] = UserRole.ADMIN
-    admin_data['tenant_id'] = tenant.id
-    admin_data['is_verified'] = True
-    
-    # Create user using FastAPI Users
-    user_manager = await anext(get_user_manager(session))
-    admin_user = await user_manager.create(admin_data)
-    
-    # Send invitation email
-    admin_name = f"{admin_user.first_name} {admin_user.last_name}"
-    invitation_sent = email_service.send_tenant_admin_invitation(
-        admin_user.email, 
-        admin_name, 
-        tenant.name, 
-        temp_password
-    )
-    
-    # Prepare response
-    admin_info = {
-        "id": str(admin_user.id),
-        "email": admin_user.email,
-        "first_name": admin_user.first_name,
-        "last_name": admin_user.last_name,
-        "role": admin_user.role,
-        "tenant_id": str(admin_user.tenant_id),
-        "is_active": admin_user.is_active,
-        "is_verified": admin_user.is_verified,
-        "created_at": admin_user.created_at.isoformat()
-    }
-    
-    return TenantWithAdminResponse(
-        tenant=tenant,
-        admin=admin_info,
-        temp_password=temp_password,
-        invitation_sent=invitation_sent
-    )
 
 
 @router.get("/{tenant_id}", response_model=TenantRead)

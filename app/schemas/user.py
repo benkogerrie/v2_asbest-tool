@@ -12,6 +12,10 @@ class UserBase(BaseModel):
     email: EmailStr
     role: UserRole = UserRole.USER
     tenant_id: Optional[UUID] = None
+    phone: Optional[str] = None
+    department: Optional[str] = None
+    job_title: Optional[str] = None
+    employee_id: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -24,6 +28,10 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     role: Optional[UserRole] = None
     tenant_id: Optional[UUID] = None
+    phone: Optional[str] = None
+    department: Optional[str] = None
+    job_title: Optional[str] = None
+    employee_id: Optional[str] = None
     is_active: Optional[bool] = None
 
 

@@ -3,11 +3,20 @@ from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
+from app.schemas.user import UserCreate
+
 
 class TenantBase(BaseModel):
     name: str
     kvk: str
     contact_email: EmailStr
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    description: Optional[str] = None
+    industry: Optional[str] = None
+    employee_count: Optional[str] = None
+    founded_year: Optional[str] = None
     is_active: bool = True
 
 
@@ -19,6 +28,13 @@ class TenantUpdate(BaseModel):
     name: Optional[str] = None
     kvk: Optional[str] = None
     contact_email: Optional[EmailStr] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    description: Optional[str] = None
+    industry: Optional[str] = None
+    employee_count: Optional[str] = None
+    founded_year: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -28,3 +44,17 @@ class TenantRead(TenantBase):
     
     class Config:
         from_attributes = True
+
+
+class TenantWithAdminCreate(BaseModel):
+    """Schema for creating a tenant with an admin user."""
+    tenant: TenantCreate
+    admin: UserCreate
+
+
+class TenantWithAdminResponse(BaseModel):
+    """Response schema for tenant with admin creation."""
+    tenant: TenantRead
+    admin: dict  # User info without password
+    temp_password: str
+    invitation_sent: bool
