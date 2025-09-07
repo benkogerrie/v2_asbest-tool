@@ -212,6 +212,11 @@ async def list_reports(
         total=0
     )
 
+@router.get("/test-simple")
+async def test_simple():
+    """Test endpoint with NO dependencies at all."""
+    return {"message": "This endpoint has no dependencies and should work"}
+
 
 @router.get("/{report_id}", response_model=ReportDetail)
 async def get_report_detail(
