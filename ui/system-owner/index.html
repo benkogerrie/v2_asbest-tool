@@ -46,6 +46,107 @@
   .tabs{display:flex;gap:8px;margin-bottom:12px}
   .tab{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#121733;cursor:pointer;font-size:13px}
   .tab.active{background:#1b2240}
+  
+  /* Modal Styles */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: var(--bg);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    color: var(--text);
+  }
+  
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .close-btn:hover {
+    color: var(--text);
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+  }
+  
+  .form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  
+  .form-actions .btn {
+    min-width: 80px;
+  }
 </style>
 <script>
   // API Configuration - Railway Production URL
@@ -1065,18 +1166,67 @@ Tenant Details:
   }
 
   function showPromptForm(promptId = null) {
-    // TODO: Implement prompt form modal
-    showToast('Prompt form wordt geïmplementeerd', 'info');
+    currentEditingPromptId = promptId;
+    const modal = document.getElementById('prompt-modal');
+    const title = document.getElementById('prompt-modal-title');
+    const form = document.getElementById('prompt-form');
+    
+    if (promptId) {
+      // Edit mode
+      title.textContent = 'Prompt Bewerken';
+      const prompt = currentPrompts.find(p => p.id === promptId);
+      if (prompt) {
+        document.getElementById('prompt-name').value = prompt.name;
+        document.getElementById('prompt-description').value = prompt.description || '';
+        document.getElementById('prompt-content').value = prompt.content;
+        document.getElementById('prompt-status').value = prompt.status;
+      }
+    } else {
+      // Create mode
+      title.textContent = 'Nieuwe Prompt';
+      form.reset();
+    }
+    
+    modal.style.display = 'flex';
+  }
+
+  function closePromptModal() {
+    document.getElementById('prompt-modal').style.display = 'none';
+    currentEditingPromptId = null;
   }
 
   function viewPrompt(promptId) {
-    // TODO: Implement prompt viewer modal
-    showToast('Prompt viewer wordt geïmplementeerd', 'info');
+    const prompt = currentPrompts.find(p => p.id === promptId);
+    if (!prompt) return;
+    
+    const modal = document.getElementById('prompt-viewer-modal');
+    const title = document.getElementById('prompt-viewer-title');
+    const content = document.getElementById('prompt-viewer-content');
+    
+    title.textContent = `Prompt: ${prompt.name}`;
+    content.innerHTML = `
+      <div style="margin-bottom: 16px;">
+        <strong>Naam:</strong> ${prompt.name}<br>
+        <strong>Versie:</strong> v${prompt.version}<br>
+        <strong>Status:</strong> <span class="chip ${getStatusClass(prompt.status)}">${prompt.status}</span><br>
+        <strong>Bijgewerkt:</strong> ${new Date(prompt.updated_at).toLocaleString('nl-NL')}
+      </div>
+      ${prompt.description ? `<div style="margin-bottom: 16px;"><strong>Beschrijving:</strong><br>${prompt.description}</div>` : ''}
+      <div>
+        <strong>Content:</strong>
+        <pre style="background: var(--bg-secondary); padding: 12px; border-radius: 4px; margin-top: 8px; white-space: pre-wrap; font-family: monospace; font-size: 13px;">${prompt.content}</pre>
+      </div>
+    `;
+    
+    modal.style.display = 'flex';
+  }
+
+  function closePromptViewerModal() {
+    document.getElementById('prompt-viewer-modal').style.display = 'none';
   }
 
   function editPrompt(promptId) {
-    // TODO: Implement prompt editor modal
-    showToast('Prompt editor wordt geïmplementeerd', 'info');
+    showPromptForm(promptId);
   }
 
   async function testPrompt(promptId) {
@@ -1153,6 +1303,52 @@ Tenant Details:
       showToast('Fout bij verwijderen van prompt', 'error');
     }
   }
+
+  // Form submission handler
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('prompt-form');
+    if (form) {
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const promptData = {
+          name: formData.get('name'),
+          description: formData.get('description'),
+          content: formData.get('content'),
+          status: formData.get('status')
+        };
+        
+        try {
+          let response;
+          if (currentEditingPromptId) {
+            // Update existing prompt
+            response = await apiCall(`/admin/prompts/${currentEditingPromptId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(promptData)
+            });
+          } else {
+            // Create new prompt
+            response = await apiCall('/admin/prompts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(promptData)
+            });
+          }
+          
+          if (response) {
+            showToast(currentEditingPromptId ? 'Prompt bijgewerkt' : 'Prompt aangemaakt', 'success');
+            closePromptModal();
+            loadPrompts(); // Refresh table
+          }
+        } catch (error) {
+          console.error('Failed to save prompt:', error);
+          showToast('Fout bij opslaan van prompt', 'error');
+        }
+      });
+    }
+  });
 </script>
 </head>
 <body>
@@ -1264,6 +1460,64 @@ Tenant Details:
         </div>
       </div>
     </section>
+
+    <!-- PROMPT FORM MODAL -->
+    <div id="prompt-modal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="prompt-modal-title">Nieuwe Prompt</h3>
+          <button class="close-btn" onclick="closePromptModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="prompt-form">
+            <div class="form-group">
+              <label for="prompt-name">Naam *</label>
+              <input type="text" id="prompt-name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="prompt-description">Beschrijving</label>
+              <textarea id="prompt-description" name="description" rows="3"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="prompt-content">Prompt Content *</label>
+              <textarea id="prompt-content" name="content" rows="10" required 
+                        placeholder="Voer hier de prompt content in..."></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="prompt-status">Status</label>
+              <select id="prompt-status" name="status">
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            
+            <div class="form-actions">
+              <button type="button" class="btn secondary" onclick="closePromptModal()">Annuleren</button>
+              <button type="submit" class="btn primary">Opslaan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROMPT VIEWER MODAL -->
+    <div id="prompt-viewer-modal" class="modal" style="display:none">
+      <div class="modal-content" style="max-width:800px">
+        <div class="modal-header">
+          <h3 id="prompt-viewer-title">Prompt Details</h3>
+          <button class="close-btn" onclick="closePromptViewerModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="prompt-viewer-content">
+            <!-- Content will be loaded here -->
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- PROFIEL -->
     <section data-view="Profiel" style="display:none">
