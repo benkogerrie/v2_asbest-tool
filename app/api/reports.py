@@ -15,7 +15,6 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.report import Report, ReportAuditLog, ReportStatus, AuditAction
 from app.schemas.report import ReportOut, ReportListResponse, ReportDetail
-from app.auth.dependencies import get_current_active_user
 from app.auth.auth import fastapi_users, get_current_admin_or_system_owner
 from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
@@ -266,7 +265,7 @@ async def list_reports(
 @router.get("/{report_id}", response_model=ReportDetail)
 async def get_report_detail(
     report_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
     session: AsyncSession = Depends(get_db)
 ):
     """Get detailed report information."""
@@ -296,7 +295,7 @@ async def get_report_detail(
 @router.get("/{report_id}/source")
 async def download_source(
     report_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
     session: AsyncSession = Depends(get_db)
 ):
     """Download the original source file."""
@@ -350,7 +349,7 @@ async def download_source(
 @router.get("/{report_id}/conclusion")
 async def download_conclusion(
     report_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
     session: AsyncSession = Depends(get_db)
 ):
     """Download the conclusion PDF file."""
@@ -407,7 +406,7 @@ async def download_conclusion(
 @router.post("/{report_id}/reprocess")
 async def reprocess_report(
     report_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
     session: AsyncSession = Depends(get_db)
 ):
     """Reprocess a report with new analysis."""
