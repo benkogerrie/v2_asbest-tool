@@ -1113,6 +1113,62 @@ Tenant Details:
   let currentPrompts = [];
   let currentEditingPromptId = null;
 
+  // Toast notification function
+  function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 4px;
+      color: white;
+      font-size: 14px;
+      z-index: 10000;
+      max-width: 300px;
+      word-wrap: break-word;
+      opacity: 0;
+      transform: translateX(100%);
+      transition: all 0.3s ease;
+    `;
+    
+    // Set background color based on type
+    switch(type) {
+      case 'success':
+        toast.style.backgroundColor = '#10b981';
+        break;
+      case 'error':
+        toast.style.backgroundColor = '#ef4444';
+        break;
+      case 'warning':
+        toast.style.backgroundColor = '#f59e0b';
+        break;
+      default:
+        toast.style.backgroundColor = '#3b82f6';
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
+  }
+
   async function loadPrompts() {
     try {
       const response = await apiCall('/admin/prompts');
@@ -1305,50 +1361,46 @@ Tenant Details:
   }
 
   // Form submission handler
-  document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('prompt-form');
-    if (form) {
-      form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(form);
-        const promptData = {
-          name: formData.get('name'),
-          description: formData.get('description'),
-          content: formData.get('content'),
-          status: formData.get('status')
-        };
-        
-        try {
-          let response;
-          if (currentEditingPromptId) {
-            // Update existing prompt
-            response = await apiCall(`/admin/prompts/${currentEditingPromptId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(promptData)
-            });
-          } else {
-            // Create new prompt
-            response = await apiCall('/admin/prompts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(promptData)
-            });
-          }
-          
-          if (response) {
-            showToast(currentEditingPromptId ? 'Prompt bijgewerkt' : 'Prompt aangemaakt', 'success');
-            closePromptModal();
-            loadPrompts(); // Refresh table
-          }
-        } catch (error) {
-          console.error('Failed to save prompt:', error);
-          showToast('Fout bij opslaan van prompt', 'error');
-        }
-      });
+  async function handlePromptFormSubmit(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    const promptData = {
+      name: formData.get('name'),
+      description: formData.get('description'),
+      content: formData.get('content'),
+      status: formData.get('status')
+    };
+    
+    try {
+      let response;
+      if (currentEditingPromptId) {
+        // Update existing prompt
+        response = await apiCall(`/admin/prompts/${currentEditingPromptId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(promptData)
+        });
+      } else {
+        // Create new prompt
+        response = await apiCall('/admin/prompts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(promptData)
+        });
+      }
+      
+      if (response) {
+        showToast(currentEditingPromptId ? 'Prompt bijgewerkt' : 'Prompt aangemaakt', 'success');
+        closePromptModal();
+        loadPrompts(); // Refresh table
+      }
+    } catch (error) {
+      console.error('Failed to save prompt:', error);
+      showToast('Fout bij opslaan van prompt: ' + error.message, 'error');
     }
-  });
+  }
 </script>
 </head>
 <body>
@@ -1469,7 +1521,7 @@ Tenant Details:
           <button class="close-btn" onclick="closePromptModal()">&times;</button>
         </div>
         <div class="modal-body">
-          <form id="prompt-form">
+          <form id="prompt-form" onsubmit="handlePromptFormSubmit(event)">
             <div class="form-group">
               <label for="prompt-name">Naam *</label>
               <input type="text" id="prompt-name" name="name" required>
