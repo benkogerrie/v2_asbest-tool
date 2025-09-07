@@ -151,7 +151,7 @@
       const data = await res.json();
       if(!data?.access_token) return showErr('login-error','Geen token ontvangen.');
       localStorage.setItem(STORAGE_TOKEN_KEY, data.access_token);
-      window.location.href = APP_URL;
+      window.location.href = '/';
     }catch(e){ showErr('login-error', 'Netwerkfout: ' + e.message); }
   }
 

@@ -1,96 +1,114 @@
 #!/usr/bin/env python3
 """
-Test script to test with system owner credentials.
+Test script voor System Owner functionaliteit
 """
+
 import requests
 import json
 
-# Railway API URL
-API_BASE_URL = "https://v2asbest-tool-production.up.railway.app"
+BASE_URL = "https://v2asbest-tool-production.up.railway.app"
 
-# System owner credentials
-SYSTEM_EMAIL = "system@asbest-tool.nl"
-SYSTEM_PASSWORD = "SystemOwner123!"
-
-def login():
-    """Login and get JWT token."""
-    try:
-        response = requests.post(
-            f"{API_BASE_URL}/auth/jwt/login",
-            data={
-                "username": SYSTEM_EMAIL,
-                "password": SYSTEM_PASSWORD
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            token = data.get("access_token")
-            print(f"✅ System owner login successful: {SYSTEM_EMAIL}")
-            return token
-        else:
-            print(f"❌ System owner login failed: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        print(f"❌ System owner login error: {e}")
-        return None
-
-def test_endpoints_with_system_owner(token):
-    """Test endpoints with system owner token."""
-    endpoints = [
-        "/users/me",
-        "/reports",
-        "/tenants",
-        "/analyses/reports/test-id/analysis",
-        "/findings/reports/test-id/findings"
-    ]
+def test_system_owner():
+    print("🔍 Testing System Owner functionality...")
     
-    print(f"\n🧪 Testing endpoints with system owner...")
+    # Login als System Owner
+    login_data = {
+        "username": "system@asbest-tool.nl",
+        "password": "SystemOwner123!"
+    }
     
-    for endpoint in endpoints:
-        try:
-            response = requests.get(
-                f"{API_BASE_URL}{endpoint}",
-                headers={'Authorization': f'Bearer {token}'}
-            )
-            
-            status_emoji = "✅" if response.status_code in [200, 201] else "❌"
-            print(f"   {status_emoji} {endpoint}: {response.status_code}")
-            
-            if response.status_code == 200:
-                if endpoint == "/users/me":
-                    data = response.json()
-                    print(f"      Role: {data.get('role')}")
-                    print(f"      Tenant ID: {data.get('tenant_id')}")
-                elif endpoint == "/reports":
-                    data = response.json()
-                    print(f"      Reports found: {len(data.get('items', []))}")
-                elif endpoint == "/tenants":
-                    data = response.json()
-                    print(f"      Tenants found: {len(data)}")
-            elif response.status_code not in [404, 422]:
-                print(f"      Response: {response.text[:100]}...")
-                
-        except Exception as e:
-            print(f"   ❌ {endpoint}: Exception - {e}")
-
-def main():
-    """Main function."""
-    print("🔍 SYSTEM OWNER TEST")
-    print("=" * 30)
+    print(f"📝 Logging in as System Owner: {login_data['username']}")
     
-    # Login as system owner
-    token = login()
-    if not token:
+    response = requests.post(f"{BASE_URL}/auth/jwt/login", data=login_data)
+    
+    if response.status_code != 200:
+        print(f"❌ Login failed: {response.status_code}")
+        print(f"Response: {response.text}")
         return
     
-    # Test endpoints
-    test_endpoints_with_system_owner(token)
+    token = response.json().get("access_token")
+    if not token:
+        print("❌ No access token received")
+        return
     
-    print("\n📊 SYSTEM OWNER TEST SUMMARY")
-    print("=" * 30)
-    print("This helps identify if the issue is role-specific")
+    print("✅ Login successful")
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    # Test 1: Check current user info
+    print("\n🔍 Testing current user info...")
+    response = requests.get(f"{BASE_URL}/users/me", headers=headers)
+    if response.status_code == 200:
+        user_info = response.json()
+        print(f"✅ Current user: {user_info.get('email')} (Role: {user_info.get('role')})")
+    else:
+        print(f"❌ Failed to get user info: {response.status_code}")
+    
+    # Test 2: List existing tenants
+    print("\n🔍 Testing tenant listing...")
+    response = requests.get(f"{BASE_URL}/tenants/", headers=headers)
+    if response.status_code == 200:
+        tenants = response.json()
+        if isinstance(tenants, list):
+            print(f"✅ Found {len(tenants)} tenants")
+            for tenant in tenants:
+                print(f"   - {tenant.get('name')} (ID: {tenant.get('id')})")
+        else:
+            print(f"✅ Found {len(tenants.get('items', []))} tenants")
+            for tenant in tenants.get('items', []):
+                print(f"   - {tenant.get('name')} (ID: {tenant.get('id')})")
+    else:
+        print(f"❌ Failed to list tenants: {response.status_code}")
+        print(f"Response: {response.text}")
+    
+    # Test 3: Create a new tenant
+    print("\n🔍 Testing tenant creation...")
+    new_tenant = {
+        "name": "Test Bedrijf Z",
+        "kvk": "12345678",
+        "contact_email": "test@bedrijfz.nl",
+        "phone": "+31 6 12345678",
+        "description": "Test tenant voor System Owner functionaliteit"
+    }
+    
+    response = requests.post(f"{BASE_URL}/tenants/", json=new_tenant, headers=headers)
+    if response.status_code == 201:
+        created_tenant = response.json()
+        print(f"✅ Tenant created successfully: {created_tenant.get('name')} (ID: {created_tenant.get('id')})")
+        
+        # Test 4: Verify tenant was created
+        print("\n🔍 Verifying tenant creation...")
+        response = requests.get(f"{BASE_URL}/tenants/", headers=headers)
+        if response.status_code == 200:
+            tenants = response.json()
+            if isinstance(tenants, list):
+                print(f"✅ Now found {len(tenants)} tenants")
+                for tenant in tenants:
+                    print(f"   - {tenant.get('name')} (ID: {tenant.get('id')})")
+            else:
+                print(f"✅ Now found {len(tenants.get('items', []))} tenants")
+                for tenant in tenants.get('items', []):
+                    print(f"   - {tenant.get('name')} (ID: {tenant.get('id')})")
+    else:
+        print(f"❌ Failed to create tenant: {response.status_code}")
+        print(f"Response: {response.text}")
+    
+    # Test 5: Test user management
+    print("\n🔍 Testing user management...")
+    response = requests.get(f"{BASE_URL}/users/", headers=headers)
+    if response.status_code == 200:
+        users = response.json()
+        if isinstance(users, list):
+            print(f"✅ Found {len(users)} users")
+            for user in users:
+                print(f"   - {user.get('email')} (Role: {user.get('role')}, Tenant: {user.get('tenant_name', 'N/A')})")
+        else:
+            print(f"✅ Found {len(users.get('items', []))} users")
+            for user in users.get('items', []):
+                print(f"   - {user.get('email')} (Role: {user.get('role')}, Tenant: {user.get('tenant_name', 'N/A')})")
+    else:
+        print(f"❌ Failed to list users: {response.status_code}")
+        print(f"Response: {response.text}")
 
 if __name__ == "__main__":
-    main()
+    test_system_owner()
