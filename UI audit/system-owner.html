@@ -1,0 +1,1310 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Asbest Tool — System Owner</title>
+<style>
+  :root{--bg:#0f1320;--panel:#151a2c;--panel2:#101528;--muted:#8a93a2;--text:#e8ecf6;--border:#262c45;--accent:#6ea8fe;}
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+  body{margin:0;background:#0f1320;color:var(--text)}
+  a{color:var(--accent);text-decoration:none;cursor:pointer}
+  .app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  .sidebar{background:#0b1020;border-right:1px solid var(--border);padding:16px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#6ea8fe,#8f7afe)}
+  .tenant{font-size:12px;color:var(--muted);margin-top:2px}
+  .nav a{display:block;padding:10px 12px;margin:4px 0;border-radius:8px;color:#cfd6ea}
+  .nav a:hover{background:#1b2240}
+  .nav a.active{background:#1b2240;color:#fff;border:1px solid var(--border)}
+  .content{padding:14px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .crumbs{font-size:12px;color:var(--muted)}
+  .btn{padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:#151a2c;color:#fff;cursor:pointer;font-size:14px}
+  .btn:hover{background:#1b2240}
+  .btn.primary{background:#2b63ff;border-color:#2b63ff}
+  .btn.ghost{background:transparent}
+  .card{background:#151a2c;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 8px;font-size:16px}
+  .muted{color:var(--muted);font-size:12px}
+  .chip{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#121733;font-size:12px;color:#cdd4ea}
+  .chip.ok{background:#15251a;color:#b7f7c9;border-color:#224a2f}
+  .chip.warn{background:#2c250f;color:#ffe28a;border-color:#5c4f19}
+  .chip.bad{background:#2b1414;color:#ffb1b1;border-color:#6a2a2a}
+  .chip.deleted{background:#333;color:#aaa;border-color:#666}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  th{padding:6px 10px;text-align:left;color:var(--muted);font-size:12px}
+  td{background:#101528;border:1px solid var(--border);padding:10px;border-radius:10px;font-size:14px}
+  .uploader{border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;background:#0b1020}
+  .progress{height:8px;background:#0b1020;border:1px solid var(--border);border-radius:999px;overflow:hidden;margin-top:10px}
+  .bar{height:100%;width:0;background:#2b63ff}
+  .icon-btn{border:none;background:none;cursor:pointer;color:#e8ecf6;font-size:16px;padding:4px}
+  .icon-btn:hover{color:#6ea8fe}
+  input,select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0d1224;color:#e9edfa;outline:none;}
+  input:focus,select:focus{border-color:#6ea8fe;box-shadow:0 0 0 3px rgba(110,168,254,.15)}
+  label{display:block;margin:6px 0 6px;color:var(--muted);font-size:12px}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tab{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#121733;cursor:pointer;font-size:13px}
+  .tab.active{background:#1b2240}
+</style>
+<script>
+  // API Configuration - Railway Production URL
+  const API_BASE_URL = 'https://v2asbest-tool-production.up.railway.app';
+  
+  const CURRENT_USER = { firstName: 'System', lastName: 'Owner', full: 'System Owner' };
+
+  // API Helper Functions
+  async function apiCall(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const token = localStorage.getItem('asbest_jwt');
+    
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers
+      },
+      ...options
+    };
+    
+    try {
+      const response = await fetch(url, config);
+      if (response.status === 401) {
+        // Unauthorized - redirect to login
+        localStorage.removeItem('asbest_jwt');
+        window.location.href = '/auth';
+        return null;
+      }
+      return response;
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  }
+
+  async function checkApiHealth() {
+    try {
+      const response = await apiCall('/healthz');
+      if (response && response.ok) {
+        console.log('✅ API is healthy');
+        return true;
+      } else {
+        console.log('❌ API is not healthy');
+        return false;
+      }
+    } catch (error) {
+      console.log('❌ API Health Check Failed:', error);
+      return false;
+    }
+  }
+
+  function show(view){
+    document.querySelectorAll('[data-view]').forEach(v=>v.style.display='none');
+    document.querySelector(`[data-view="${view}"]`).style.display='block';
+    document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
+    const link = document.querySelector(`.nav a[data-link="${view}"]`);
+    if(link) link.classList.add('active');
+    document.getElementById('crumb').textContent = `${CURRENT_USER.full} / System Owner / ${view}`;
+    
+    // Load data based on view
+    switch(view) {
+      case 'Rapporten':
+        loadReports();
+        loadTenantsForUpload();
+        break;
+      case 'Admin':
+        loadTenants();
+        loadUsers();
+        break;
+    }
+  }
+  
+  function switchTab(tab){
+    document.querySelectorAll('.admin-tab').forEach(t=>t.style.display='none');
+    document.getElementById(tab).style.display='block';
+    document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  }
+  
+  function confirmDelete(){alert('Rapport verwijderd (soft-delete).');}
+  function confirmRestore(){alert('Rapport hersteld.');}
+  
+  // Load Tenants
+  async function loadTenants() {
+    try {
+      const response = await apiCall('/tenants');
+      if (response && response.ok) {
+        const tenants = await response.json();
+        console.log('Tenants loaded:', tenants);
+        updateTenantsTable(tenants);
+        return tenants;
+      }
+    } catch (error) {
+      console.error('Failed to load tenants:', error);
+    }
+    return [];
+  }
+
+  // Load Users
+  async function loadUsers() {
+    try {
+      const response = await apiCall('/users');
+      if (response && response.ok) {
+        const users = await response.json();
+        console.log('Users loaded:', users);
+        updateUsersTable(users);
+        loadTenantsForUserFilter(users);
+        return users;
+      } else {
+        console.error('Failed to load users:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    }
+    return [];
+  }
+  
+  function loadTenantsForUserFilter(users) {
+    // Extract unique tenants from users
+    const tenants = [...new Set(users.map(user => user.tenant_name).filter(Boolean))];
+    const select = document.getElementById('user-tenant-filter');
+    if (select) {
+      select.innerHTML = '<option value="">Alle Tenants</option>';
+      tenants.forEach(tenantName => {
+        select.innerHTML += `<option value="${tenantName}">${tenantName}</option>`;
+      });
+    }
+  }
+
+  // Load Reports
+  async function loadReports() {
+    try {
+      const response = await apiCall('/reports');
+      if (response && response.ok) {
+        const data = await response.json();
+        console.log('Reports loaded:', data);
+        updateReportsTable(data.items || []);
+        return data.items || [];
+      }
+    } catch (error) {
+      console.error('Failed to load reports:', error);
+    }
+    return [];
+  }
+
+  // Load tenants for upload selector
+  async function loadTenantsForUpload() {
+    try {
+      const response = await apiCall('/tenants');
+      if (response && response.ok) {
+        const tenants = await response.json();
+        const select = document.getElementById('upload-tenant-select');
+        if (select) {
+          select.innerHTML = '<option value="">Selecteer tenant...</option>';
+          tenants.forEach(tenant => {
+            const option = document.createElement('option');
+            option.value = tenant.id;
+            option.textContent = tenant.name;
+            select.appendChild(option);
+          });
+        }
+        return tenants;
+      }
+    } catch (error) {
+      console.error('Failed to load tenants for upload:', error);
+    }
+    return [];
+  }
+
+  // Update UI Functions
+  function updateTenantsTable(tenants) {
+    const table = document.querySelector('#tenants-table-body');
+    if (!table) return;
+    
+    table.innerHTML = tenants.map(tenant => `
+      <tr>
+        <td>${tenant.name}</td>
+        <td>${tenant.kvk || '-'}</td>
+        <td>${tenant.contact_email || '-'}</td>
+        <td>${tenant.user_count || 0}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="viewTenant('${tenant.id}')">👁</button>
+          <button class="icon-btn" title="Bewerk" onclick="editTenant('${tenant.id}')">✏️</button>
+          <button class="icon-btn" title="Verwijder" onclick="deleteTenant('${tenant.id}')">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function updateUsersTable(users) {
+    const table = document.querySelector('#users-table-body');
+    if (!table) return;
+    
+    table.innerHTML = users.map(user => `
+      <tr>
+        <td>${user.first_name || '-'}</td>
+        <td>${user.last_name || '-'}</td>
+        <td>${user.email}</td>
+        <td>${user.role}</td>
+        <td>${user.tenant_name || '-'}</td>
+        <td><span class="chip ${user.is_active ? 'ok' : 'bad'}">${user.is_active ? 'Actief' : 'Inactief'}</span></td>
+        <td>
+          <button class="icon-btn" title="Bewerk" onclick="editUser('${user.id}')">✏️</button>
+          <button class="icon-btn" title="Verwijder" onclick="deleteUser('${user.id}')">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Upload functionality
+  async function uploadReport(file, tenantId = null) {
+    if (!file) {
+      alert('Geen bestand geselecteerd');
+      return;
+    }
+
+    if (file.type !== 'application/pdf') {
+      alert('Alleen PDF bestanden zijn toegestaan');
+      return;
+    }
+
+    // For system owner, we need to get tenant_id from the selector
+    if (!tenantId) {
+      // Try to get current user info to determine if we need tenant_id
+      try {
+        const userResponse = await apiCall('/users/me');
+        if (userResponse && userResponse.ok) {
+          const user = await userResponse.json();
+          if (user.role === 'SYSTEM_OWNER') {
+            // System owner needs to select a tenant from the dropdown
+            const tenantSelect = document.getElementById('upload-tenant-select');
+            const selectedTenantId = tenantSelect.value;
+            if (!selectedTenantId) {
+              alert('Selecteer eerst een tenant (vereist voor System Owner)');
+              return;
+            }
+            return uploadReport(file, selectedTenantId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get user info:', error);
+      }
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const progressBar = document.getElementById('upload-progress');
+      const bar = document.getElementById('upload-bar');
+      
+      progressBar.style.display = 'block';
+      bar.style.width = '0%';
+
+      // Build URL with tenant_id query parameter if needed
+      let url = `${API_BASE_URL}/reports/`;
+      if (tenantId) {
+        url += `?tenant_id=${encodeURIComponent(tenantId)}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        bar.style.width = '100%';
+        alert(`✅ Rapport "${file.name}" succesvol geüpload!\n\nStatus: ${result.status}\nID: ${result.id}`);
+        loadReports(); // Refresh reports list
+      } else {
+        const error = await response.json();
+        alert(`❌ Upload mislukt: ${error.detail || 'Onbekende fout'}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(`❌ Upload mislukt: ${error.message}`);
+    } finally {
+      setTimeout(() => {
+        document.getElementById('upload-progress').style.display = 'none';
+      }, 2000);
+    }
+  }
+
+  function updateReportsTable(reports) {
+    const table = document.querySelector('[data-view="Rapporten"] table tbody');
+    if (!table) return;
+    
+    table.innerHTML = reports.map(report => `
+      <tr>
+        <td><a onclick="showReportDetail('${report.id}')">${report.filename || 'Onbekend'}</a></td>
+        <td>${report.tenant_name || '-'}</td>
+        <td><span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></td>
+        <td>${report.finding_count || '-'}</td>
+        <td>${report.score || '-'}</td>
+        <td>${formatDate(report.uploaded_at)}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
+          ${report.status === 'DELETED' ? 
+            '<button class="icon-btn" title="Herstel" onclick="confirmRestore()">♻️</button>' : 
+            '<button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>'
+          }
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function getStatusClass(status) {
+    switch (status) {
+      case 'DONE': return 'ok';
+      case 'PROCESSING': return 'warn';
+      case 'FAILED': return 'bad';
+      case 'DELETED': return 'deleted';
+      default: return 'warn';
+    }
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('nl-NL');
+  }
+  
+  // Report Detail Functions
+  let currentReportId = null;
+  
+  async function showReportDetail(reportId) {
+    currentReportId = reportId;
+    
+    // For now, show basic info from the reports list
+    // TODO: Implement full report detail API when fixed
+    const reports = await getReportsData();
+    const report = reports.find(r => r.id === reportId);
+    
+    if (report) {
+      updateReportDetailView(report);
+      show('Rapportdetail');
+    } else {
+      alert('Rapport niet gevonden');
+    }
+  }
+  
+  function updateReportDetailView(report) {
+    const title = document.querySelector('[data-view="Rapportdetail"] h3');
+    if (title) {
+      title.textContent = report.filename || 'Onbekend rapport';
+    }
+    
+    // Update summary section
+    const summaryCard = document.querySelector('[data-view="Rapportdetail"] .card[style*="background:#0d1224"]');
+    if (summaryCard) {
+      summaryCard.innerHTML = `
+        <h3>Rapport Informatie</h3>
+        <p><strong>Status:</strong> <span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></p>
+        <p><strong>Score:</strong> ${report.score || 'N/A'}</p>
+        <p><strong>Findings:</strong> ${report.finding_count || 0}</p>
+        <p><strong>Geüpload:</strong> ${formatDate(report.uploaded_at)}</p>
+        <p><strong>Tenant:</strong> ${report.tenant_name || 'Onbekend'}</p>
+        <p class="muted">Geüpload door ${report.uploaded_by_name || 'Onbekende gebruiker'}</p>
+      `;
+    }
+    
+    // Load analysis and findings data
+    loadAnalysisAndFindings(currentReportId);
+  }
+  
+  async function loadAnalysisAndFindings(reportId) {
+    try {
+      // Load analysis data
+      const analysisResponse = await apiCall(`/analyses/reports/${reportId}/analysis`);
+      if (analysisResponse && analysisResponse.ok) {
+        const analysis = await analysisResponse.json();
+        updateAnalysisView(analysis);
+      }
+      
+      // Load findings data
+      const findingsResponse = await apiCall(`/findings/reports/${reportId}/findings`);
+      if (findingsResponse && findingsResponse.ok) {
+        const findings = await findingsResponse.json();
+        updateFindingsView(findings);
+      }
+    } catch (error) {
+      console.error('Error loading analysis and findings:', error);
+    }
+  }
+  
+  function updateAnalysisView(analysis) {
+    const analysisCard = document.querySelector('[data-view="Rapportdetail"] .card:not([style*="background:#0d1224"])');
+    if (analysisCard) {
+      analysisCard.innerHTML = `
+        <h3>Analyse Resultaten</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#4CAF50">${analysis.score || 0}</div>
+            <div style="font-size:12px;color:#888">Score</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#2196F3">${analysis.rules_passed || 0}</div>
+            <div style="font-size:12px;color:#888">Regels Geslaagd</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#f44336">${analysis.rules_failed || 0}</div>
+            <div style="font-size:12px;color:#888">Regels Gefaald</div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Engine:</strong> ${analysis.engine || 'N/A'} (${analysis.engine_version || 'N/A'})
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Samenvatting:</strong><br>
+          <p style="margin:8px 0;color:#ccc">${analysis.summary || 'Geen samenvatting beschikbaar'}</p>
+        </div>
+        <div style="font-size:12px;color:#888">
+          <strong>Analyse uitgevoerd:</strong> ${formatDate(analysis.finished_at)} (${analysis.duration_ms || 0}ms)
+        </div>
+      `;
+    }
+  }
+  
+  function updateFindingsView(findings) {
+    // Find the findings card (the second card after analysis)
+    const cards = document.querySelectorAll('[data-view="Rapportdetail"] .card');
+    let findingsCard = null;
+    
+    // Look for the findings card (should be the last one)
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const card = cards[i];
+      if (card.innerHTML.includes('Findings & Analyse') || card.innerHTML.includes('Analyse resultaten worden geladen')) {
+        findingsCard = card;
+        break;
+      }
+    }
+    
+    if (findingsCard) {
+      if (findings.length === 0) {
+        findingsCard.innerHTML = `
+          <h3>Findings & Analyse</h3>
+          <p style="color:#4CAF50">✅ Geen findings gevonden - rapport voldoet aan alle regels!</p>
+        `;
+      } else {
+        // Group findings by severity
+        const findingsBySeverity = {
+          'CRITICAL': findings.filter(f => f.severity === 'CRITICAL'),
+          'HIGH': findings.filter(f => f.severity === 'HIGH'),
+          'MEDIUM': findings.filter(f => f.severity === 'MEDIUM'),
+          'LOW': findings.filter(f => f.severity === 'LOW')
+        };
+        
+        let findingsHTML = `
+          <h3>Findings & Analyse (${findings.length} bevindingen)</h3>
+          <div style="margin-bottom:16px">
+        `;
+        
+        // Add severity summary
+        Object.entries(findingsBySeverity).forEach(([severity, severityFindings]) => {
+          if (severityFindings.length > 0) {
+            const color = getSeverityColor(severity);
+            findingsHTML += `
+              <span style="display:inline-block;margin:4px 8px 4px 0;padding:4px 8px;background:${color};color:white;border-radius:4px;font-size:12px">
+                ${severity}: ${severityFindings.length}
+              </span>
+            `;
+          }
+        });
+        
+        findingsHTML += `</div>`;
+        
+        // Add individual findings
+        findings.forEach((finding, index) => {
+          const severityColor = getSeverityColor(finding.severity);
+          findingsHTML += `
+            <div style="margin-bottom:16px;padding:12px;background:#1a1a1a;border-radius:8px;border-left:4px solid ${severityColor}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <strong style="color:${severityColor}">${finding.severity}</strong>
+                <span style="font-size:12px;color:#888">${finding.rule_id}</span>
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Sectie:</strong> ${finding.section || 'N/A'}
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Probleem:</strong><br>
+                <p style="margin:4px 0;color:#ccc">${finding.message || 'Geen beschrijving'}</p>
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Aanbeveling:</strong><br>
+                <p style="margin:4px 0;color:#4CAF50">${finding.suggestion || 'Geen aanbeveling'}</p>
+              </div>
+              ${finding.tags && finding.tags.length > 0 ? `
+                <div>
+                  <strong>Tags:</strong>
+                  ${finding.tags.map(tag => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;background:#333;color:#ccc;border-radius:3px;font-size:11px">${tag}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        findingsCard.innerHTML = findingsHTML;
+      }
+    }
+  }
+  
+  function getSeverityColor(severity) {
+    switch(severity) {
+      case 'CRITICAL': return '#f44336';
+      case 'HIGH': return '#ff9800';
+      case 'MEDIUM': return '#ffeb3b';
+      case 'LOW': return '#4CAF50';
+      default: return '#888';
+    }
+  }
+  
+  async function getReportsData() {
+    try {
+      const response = await apiCall('/reports');
+      if (response && response.ok) {
+        const data = await response.json();
+        return data.items || [];
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error);
+    }
+    return [];
+  }
+  
+  async function downloadSource() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/source`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `source_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
+  }
+  
+  async function downloadConclusion() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/conclusion`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conclusion_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
+  }
+
+  // User Management Functions
+  let currentEditingUserId = null;
+  
+  function showCreateUserForm() {
+    currentEditingUserId = null;
+    document.getElementById('user-form-title').textContent = 'Nieuwe User Aanmaken';
+    document.getElementById('user-form').reset();
+    document.getElementById('user-form-card').style.display = 'block';
+    loadTenantsForUserForm();
+  }
+  
+  function hideUserForm() {
+    document.getElementById('user-form-card').style.display = 'none';
+    currentEditingUserId = null;
+  }
+  
+  async function loadTenantsForUserForm() {
+    try {
+      const response = await apiCall('/tenants');
+      if (response && response.ok) {
+        const tenants = await response.json();
+        const select = document.getElementById('user-tenant');
+        if (select) {
+          select.innerHTML = '<option value="">Selecteer tenant...</option>';
+          tenants.forEach(tenant => {
+            select.innerHTML += `<option value="${tenant.id}">${tenant.name}</option>`;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading tenants for user form:', error);
+    }
+  }
+  
+  async function editUser(userId) {
+    try {
+      const response = await apiCall(`/users/${userId}`);
+      if (response && response.ok) {
+        const user = await response.json();
+        currentEditingUserId = userId;
+        
+        // Populate form
+        document.getElementById('user-form-title').textContent = 'User Bewerken';
+        document.getElementById('user-first-name').value = user.first_name || '';
+        document.getElementById('user-last-name').value = user.last_name || '';
+        document.getElementById('user-email').value = user.email || '';
+        document.getElementById('user-role').value = user.role || '';
+        document.getElementById('user-phone').value = user.phone || '';
+        document.getElementById('user-department').value = user.department || '';
+        document.getElementById('user-job-title').value = user.job_title || '';
+        document.getElementById('user-employee-id').value = user.employee_id || '';
+        
+        // Load tenants and set current tenant
+        await loadTenantsForUserForm();
+        document.getElementById('user-tenant').value = user.tenant_id || '';
+        
+        document.getElementById('user-form-card').style.display = 'block';
+      } else {
+        alert('User niet gevonden');
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+      alert('Error bij het laden van user');
+    }
+  }
+  
+  async function deleteUser(userId) {
+    if (!confirm('Weet je zeker dat je deze user wilt verwijderen?')) {
+      return;
+    }
+    
+    try {
+      const response = await apiCall(`/users/${userId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response && response.ok) {
+        alert('User succesvol verwijderd');
+        loadUsers(); // Refresh users list
+      } else {
+        alert('Error bij het verwijderen van user');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error bij het verwijderen van user');
+    }
+  }
+  
+  async function filterUsersByTenant() {
+    const selectedTenant = document.getElementById('user-tenant-filter').value;
+    
+    try {
+      const response = await apiCall('/users');
+      if (response && response.ok) {
+        let users = await response.json();
+        
+        // Filter users by selected tenant
+        if (selectedTenant) {
+          users = users.filter(user => user.tenant_name === selectedTenant);
+        }
+        
+        updateUsersTable(users);
+      }
+    } catch (error) {
+      console.error('Error filtering users:', error);
+    }
+  }
+  
+  // User form submission
+  document.addEventListener('DOMContentLoaded', function() {
+    const userForm = document.getElementById('user-form');
+    if (userForm) {
+      userForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = {
+          first_name: document.getElementById('user-first-name').value,
+          last_name: document.getElementById('user-last-name').value,
+          email: document.getElementById('user-email').value,
+          role: document.getElementById('user-role').value,
+          tenant_id: document.getElementById('user-tenant').value,
+          phone: document.getElementById('user-phone').value,
+          department: document.getElementById('user-department').value,
+          job_title: document.getElementById('user-job-title').value,
+          employee_id: document.getElementById('user-employee-id').value
+        };
+        
+        try {
+          let response;
+          if (currentEditingUserId) {
+            // Update existing user
+            response = await apiCall(`/users/${currentEditingUserId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(formData)
+            });
+          } else {
+            // Create new user
+            response = await apiCall('/users', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(formData)
+            });
+          }
+          
+          if (response && response.ok) {
+            alert(currentEditingUserId ? 'User succesvol bijgewerkt' : 'User succesvol aangemaakt');
+            hideUserForm();
+            loadUsers(); // Refresh users list
+          } else {
+            alert('Error bij het opslaan van user');
+          }
+        } catch (error) {
+          console.error('Error saving user:', error);
+          alert('Error bij het opslaan van user');
+        }
+      });
+    }
+  });
+
+  // Tenant Management Functions
+  function resetTenantForm() {
+    document.getElementById('tenant-form').reset();
+    currentEditingTenantId = null;
+    document.querySelector('#tenant-form h3').textContent = 'Nieuwe Tenant + Admin';
+    document.querySelector('#tenant-form button[type="submit"]').textContent = 'Aanmaken';
+  }
+  
+  async function createTenantWithAdmin(event) {
+    event.preventDefault();
+    
+    const formData = {
+      tenant: {
+        name: document.getElementById('tenant-name').value,
+        kvk: document.getElementById('tenant-kvk').value,
+        contact_email: document.getElementById('tenant-email').value,
+        phone: document.getElementById('tenant-phone').value,
+        address: document.getElementById('tenant-address').value,
+        website: document.getElementById('tenant-website').value,
+        industry: document.getElementById('tenant-industry').value
+      },
+      admin: {
+        first_name: document.getElementById('admin-first').value,
+        last_name: document.getElementById('admin-last').value,
+        email: document.getElementById('admin-email').value,
+        phone: document.getElementById('admin-phone').value,
+        job_title: document.getElementById('admin-title').value,
+        department: document.getElementById('admin-department').value,
+        role: 'ADMIN'
+      }
+    };
+    
+    try {
+      let response;
+      if (currentEditingTenantId) {
+        // Update existing tenant (without admin creation)
+        const updateData = {
+          name: formData.tenant.name,
+          kvk: formData.tenant.kvk,
+          contact_email: formData.tenant.contact_email,
+          phone: formData.tenant.phone,
+          address: formData.tenant.address,
+          website: formData.tenant.website,
+          industry: formData.tenant.industry
+        };
+        
+        response = await apiCall(`/tenants/${currentEditingTenantId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+        
+        if (response && response.ok) {
+          alert(`✅ Tenant "${formData.tenant.name}" succesvol bijgewerkt!`);
+          resetTenantForm();
+          loadTenants(); // Refresh tenants list
+        } else {
+          const error = await response.json();
+          alert(`❌ Fout bij bijwerken: ${error.detail || 'Onbekende fout'}`);
+        }
+      } else {
+        // Create new tenant with admin
+        response = await apiCall('/tenants/with-admin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        if (response && response.ok) {
+          const result = await response.json();
+          alert(`✅ Tenant "${result.tenant.name}" en admin "${result.admin.first_name} ${result.admin.last_name}" succesvol aangemaakt!\n\nTijdelijk wachtwoord: ${result.temp_password}\nE-mail uitnodiging: ${result.invitation_sent ? 'Verzonden' : 'Niet verzonden'}`);
+          resetTenantForm();
+          loadTenants(); // Refresh tenants list
+        } else {
+          const error = await response.json();
+          alert(`❌ Fout bij aanmaken: ${error.detail || 'Onbekende fout'}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to create/update tenant:', error);
+      alert('❌ Fout bij aanmaken/bijwerken van tenant');
+    }
+  }
+  
+  // Tenant Management Functions
+  let currentEditingTenantId = null;
+  
+  async function viewTenant(tenantId) {
+    try {
+      const response = await apiCall(`/tenants/${tenantId}`);
+      if (response && response.ok) {
+        const tenant = await response.json();
+        
+        // Show tenant details in a modal or alert for now
+        const details = `
+Tenant Details:
+- Naam: ${tenant.name}
+- KvK: ${tenant.kvk || 'N/A'}
+- Contact Email: ${tenant.contact_email || 'N/A'}
+- Telefoon: ${tenant.phone || 'N/A'}
+- Adres: ${tenant.address || 'N/A'}
+- Postcode: ${tenant.postal_code || 'N/A'}
+- Plaats: ${tenant.city || 'N/A'}
+- Land: ${tenant.country || 'N/A'}
+- Aangemaakt: ${new Date(tenant.created_at).toLocaleDateString('nl-NL')}
+        `;
+        alert(details);
+      } else {
+        alert('Tenant niet gevonden');
+      }
+    } catch (error) {
+      console.error('Error loading tenant:', error);
+      alert('Error bij het laden van tenant');
+    }
+  }
+  
+  async function editTenant(tenantId) {
+    try {
+      const response = await apiCall(`/tenants/${tenantId}`);
+      if (response && response.ok) {
+        const tenant = await response.json();
+        currentEditingTenantId = tenantId;
+        
+        // Populate tenant form with existing data
+        document.getElementById('tenant-name').value = tenant.name || '';
+        document.getElementById('tenant-kvk').value = tenant.kvk || '';
+        document.getElementById('tenant-email').value = tenant.contact_email || '';
+        document.getElementById('tenant-phone').value = tenant.phone || '';
+        document.getElementById('tenant-address').value = tenant.address || '';
+        document.getElementById('tenant-website').value = tenant.website || '';
+        document.getElementById('tenant-industry').value = tenant.industry || '';
+        
+        // Change form title and submit button
+        document.querySelector('#tenant-form h3').textContent = 'Tenant Bewerken';
+        document.querySelector('#tenant-form button[type="submit"]').textContent = 'Bijwerken';
+        
+        // Show the form
+        document.getElementById('tenant-form').scrollIntoView({ behavior: 'smooth' });
+      } else {
+        alert('Tenant niet gevonden');
+      }
+    } catch (error) {
+      console.error('Error loading tenant:', error);
+      alert('Error bij het laden van tenant');
+    }
+  }
+  
+  async function deleteTenant(tenantId) {
+    if (!confirm('Weet je zeker dat je deze tenant wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {
+      return;
+    }
+    
+    try {
+      const response = await apiCall(`/tenants/${tenantId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response && response.ok) {
+        alert('Tenant succesvol verwijderd');
+        loadTenants(); // Refresh tenants list
+      } else {
+        alert('Error bij het verwijderen van tenant');
+      }
+    } catch (error) {
+      console.error('Error deleting tenant:', error);
+      alert('Error bij het verwijderen van tenant');
+    }
+  }
+
+  window.onload=()=>{
+    checkApiHealth();
+    show('Rapporten');
+    
+    // Add form submit handler
+    document.getElementById('tenant-form').addEventListener('submit', createTenantWithAdmin);
+    
+    // Setup file upload
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+      fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          uploadReport(file);
+        }
+      });
+    }
+    
+    // Setup drag and drop
+    const uploader = document.getElementById('uploader');
+    if (uploader) {
+      uploader.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = '#6ea8fe';
+      });
+      
+      uploader.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = 'var(--border)';
+      });
+      
+      uploader.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = 'var(--border)';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          uploadReport(file);
+        }
+      });
+    }
+  };
+</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <div><strong>Asbest Tool</strong></div>
+        <div class="tenant">System Owner</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#" data-link="Rapporten" onclick="show('Rapporten')">Rapporten</a>
+      <a href="#" data-link="Profiel" onclick="show('Profiel')">Profiel</a>
+    </nav>
+    <nav class="nav" style="margin-top:auto">
+      <a href="#" data-link="Admin" onclick="show('Admin');switchTab('tenants')">Admin</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="topbar">
+      <div class="crumbs" id="crumb"></div>
+      <div>
+        <button class="btn ghost">Help</button>
+        <button class="btn">Uitloggen</button>
+      </div>
+    </div>
+
+    <!-- RAPPORTEN -->
+    <section data-view="Rapporten">
+      <div class="card">
+        <h3>Upload nieuw rapport</h3>
+        <div style="margin-bottom: 16px;">
+          <label>Selecteer tenant (voor System Owner):</label>
+          <select id="upload-tenant-select" style="margin-bottom: 12px;">
+            <option value="">Laden...</option>
+          </select>
+        </div>
+        <div class="uploader" id="uploader">
+          <p><strong>Sleep je bestand hierheen</strong> of klik om te kiezen</p>
+          <input type="file" id="file-input" accept=".pdf" style="display: none;">
+          <button class="btn primary" onclick="document.getElementById('file-input').click()">Kies bestand</button>
+          <div class="progress" id="upload-progress" style="display: none;">
+            <div class="bar" id="upload-bar"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Rapporten <span style="float:right"><label class="muted">Filter tenant</label><select><option>Alle</option><option>Bedrijf Y</option><option>Gemeente X</option></select></span></h3>
+        <table>
+          <thead>
+            <tr><th>Bestandsnaam</th><th>Tenant</th><th>Status</th><th>#Findings</th><th>Score</th><th>Uploaddatum</th><th>Acties</th></tr>
+          </thead>
+          <tbody>
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RAPPORTDETAIL -->
+    <section data-view="Rapportdetail" style="display:none">
+      <div class="card">
+        <h3>Rapport Details</h3>
+        <button class="btn" onclick="show('Rapporten')">← Terug</button>
+        <div style="margin-top:12px">
+          <button class="btn primary" onclick="downloadSource()">Download bronbestand</button>
+          <button class="btn" onclick="downloadConclusion()" style="margin-left:8px">Download conclusie (PDF)</button>
+        </div>
+        <div class="card" style="margin-top:12px;background:#0d1224">
+          <h3>Rapport Informatie</h3>
+          <p>Laden...</p>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Findings & Analyse</h3>
+          <p class="muted">Analyse resultaten worden geladen...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFIEL -->
+    <section data-view="Profiel" style="display:none">
+      <div class="card">
+        <h3>Mijn profiel</h3>
+        <label>Voornaam</label><input type="text" value="System"/>
+        <label>Achternaam</label><input type="text" value="Owner"/>
+        <label>Email</label><input type="email" value="system@asbest-tool.nl"/>
+        <div style="margin-top:12px"><button class="btn primary">Opslaan</button></div>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section data-view="Admin" style="display:none">
+      <div class="tabs">
+        <div class="tab active" data-tab="tenants" onclick="switchTab('tenants')">Tenants</div>
+        <div class="tab" data-tab="users" onclick="switchTab('users')">Users</div>
+      </div>
+
+      <div id="tenants" class="admin-tab">
+        <div class="card">
+          <h3>Nieuwe Tenant + Admin</h3>
+          <form id="tenant-form">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Bedrijfsnaam *</label>
+                <input type="text" id="tenant-name" placeholder="Bedrijf Z" required>
+              </div>
+              <div>
+                <label>KvK nummer *</label>
+                <input type="text" id="tenant-kvk" placeholder="12345678" required>
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Contact e-mail *</label>
+                <input type="email" id="tenant-email" placeholder="info@bedrijf-z.nl" required>
+              </div>
+              <div>
+                <label>Telefoon</label>
+                <input type="tel" id="tenant-phone" placeholder="+31 20 123 4567">
+              </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <label>Adres</label>
+              <input type="text" id="tenant-address" placeholder="Straat 1, 1234 AB Plaats">
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Website</label>
+                <input type="url" id="tenant-website" placeholder="https://www.bedrijf-z.nl">
+              </div>
+              <div>
+                <label>Branche</label>
+                <input type="text" id="tenant-industry" placeholder="Bouw & Constructie">
+              </div>
+            </div>
+            
+            <hr style="margin: 20px 0; border: 1px solid var(--border);">
+            
+            <h4>Tenant Admin Gegevens</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Voornaam *</label>
+                <input type="text" id="admin-first" placeholder="Jan" required>
+              </div>
+              <div>
+                <label>Achternaam *</label>
+                <input type="text" id="admin-last" placeholder="de Vries" required>
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>E-mail *</label>
+                <input type="email" id="admin-email" placeholder="jan@bedrijf-z.nl" required>
+              </div>
+              <div>
+                <label>Telefoon</label>
+                <input type="tel" id="admin-phone" placeholder="+31 6 123 45678">
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label>Functietitel</label>
+                <input type="text" id="admin-title" placeholder="Project Manager">
+              </div>
+              <div>
+                <label>Afdeling</label>
+                <input type="text" id="admin-department" placeholder="Bouw & Onderhoud">
+              </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+              <button type="submit" class="btn primary">🚀 Tenant + Admin Aanmaken</button>
+              <button type="button" class="btn" onclick="resetTenantForm()">Reset</button>
+            </div>
+          </form>
+        </div>
+        
+        <div class="card">
+          <h3>Bestaande Tenants</h3>
+          <table>
+            <thead>
+              <tr><th>Naam</th><th>KvK</th><th>Contact</th><th>#Users</th><th>Acties</th></tr>
+            </thead>
+            <tbody id="tenants-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="users" class="admin-tab" style="display:none">
+        <div class="card">
+          <h3>Users Management</h3>
+          <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+            <button class="btn primary" onclick="showCreateUserForm()">+ Nieuwe User</button>
+            <select id="user-tenant-filter" onchange="filterUsersByTenant()">
+              <option value="">Alle Tenants</option>
+            </select>
+          </div>
+          <table style="margin-top:12px">
+            <thead>
+              <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Tenant</th><th>Status</th><th>Acties</th></tr>
+            </thead>
+            <tbody id="users-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Create/Edit User Form -->
+        <div class="card" id="user-form-card" style="display:none;margin-top:12px">
+          <h3 id="user-form-title">Nieuwe User Aanmaken</h3>
+          <form id="user-form">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Voornaam *</label>
+                <input type="text" id="user-first-name" required>
+              </div>
+              <div>
+                <label>Achternaam *</label>
+                <input type="text" id="user-last-name" required>
+              </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Email *</label>
+                <input type="email" id="user-email" required>
+              </div>
+              <div>
+                <label>Rol *</label>
+                <select id="user-role" required>
+                  <option value="USER">User</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="SYSTEM_OWNER">System Owner</option>
+                </select>
+              </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Tenant *</label>
+                <select id="user-tenant" required>
+                  <option value="">Selecteer tenant...</option>
+                </select>
+              </div>
+              <div>
+                <label>Telefoon</label>
+                <input type="tel" id="user-phone">
+              </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Afdeling</label>
+                <input type="text" id="user-department">
+              </div>
+              <div>
+                <label>Functietitel</label>
+                <input type="text" id="user-job-title">
+              </div>
+            </div>
+            
+            <div style="margin-bottom:12px">
+              <label>Medewerker ID</label>
+              <input type="text" id="user-employee-id">
+            </div>
+            
+            <div style="display:flex;gap:8px">
+              <button type="submit" class="btn primary">Opslaan</button>
+              <button type="button" class="btn" onclick="hideUserForm()">Annuleren</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</body>
+</html>

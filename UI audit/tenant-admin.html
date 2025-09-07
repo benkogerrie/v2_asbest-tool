@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Asbest Tool — User + Admin</title>
+<style>
+  :root{--bg:#0f1320;--panel:#151a2c;--panel2:#101528;--muted:#8a93a2;--text:#e8ecf6;--border:#262c45;--accent:#6ea8fe;}
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+  body{margin:0;background:#0f1320;color:var(--text)}
+  a{color:var(--accent);text-decoration:none;cursor:pointer}
+  .app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  .sidebar{background:#0b1020;border-right:1px solid var(--border);padding:16px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#6ea8fe,#8f7afe)}
+  .tenant{font-size:12px;color:var(--muted);margin-top:2px}
+  .nav a{display:block;padding:10px 12px;margin:4px 0;border-radius:8px;color:#cfd6ea}
+  .nav a:hover{background:#1b2240}
+  .nav a.active{background:#1b2240;color:#fff;border:1px solid var(--border)}
+  .content{padding:14px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .crumbs{font-size:12px;color:var(--muted)}
+  .btn{padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:#151a2c;color:#fff;cursor:pointer;font-size:14px}
+  .btn:hover{background:#1b2240}
+  .btn.primary{background:#2b63ff;border-color:#2b63ff}
+  .btn.ghost{background:transparent}
+  .card{background:#151a2c;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 8px;font-size:16px}
+  .muted{color:var(--muted);font-size:12px}
+  .chip{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#121733;font-size:12px;color:#cdd4ea}
+  .chip.ok{background:#15251a;color:#b7f7c9;border-color:#224a2f}
+  .chip.warn{background:#2c250f;color:#ffe28a;border-color:#5c4f19}
+  .chip.bad{background:#2b1414;color:#ffb1b1;border-color:#6a2a2a}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  th{padding:6px 10px;text-align:left;color:var(--muted);font-size:12px}
+  td{background:#101528;border:1px solid var(--border);padding:10px;border-radius:10px;font-size:14px}
+  .uploader{border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;background:#0b1020}
+  .progress{height:8px;background:#0b1020;border:1px solid var(--border);border-radius:999px;overflow:hidden;margin-top:10px}
+  .bar{height:100%;width:0;background:#2b63ff}
+  .json{background:#0b1020;border:1px dashed var(--border);border-radius:10px;padding:12px;font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre-wrap}
+  .icon-btn{border:none;background:none;cursor:pointer;color:#e8ecf6;font-size:16px;padding:4px}
+  .icon-btn:hover{color:#6ea8fe}
+  /* Globale form-styling voor álle schermen (User, Tenant Admin, System Owner) */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  select,
+  textarea{
+    width:100%;
+    padding:10px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:#0d1224;
+    color:#e9edfa;
+    outline:none;
+  }
+  input:disabled, select:disabled, textarea:disabled{
+    opacity:.7;
+    color:#9aa3bf;
+    background:#0f1328;
+  }
+  input::placeholder, textarea::placeholder{ color: var(--muted); }
+  input:focus, select:focus, textarea:focus{
+    border-color:#6ea8fe;
+    box-shadow:0 0 0 3px rgba(110,168,254,.15);
+  }
+  label{ display:block; margin:6px 0 6px; color:var(--muted); font-size:12px; }
+
+  /* Tabs styling voor Admin */
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tab{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#121733;cursor:pointer;font-size:13px}
+  .tab.active{background:#1b2240}
+</style>
+<script>
+  // API Configuration - Railway Production URL (Git Author Fixed)
+  const API_BASE_URL = 'https://v2asbest-tool-production.up.railway.app';
+  
+  const CURRENT_USER = { firstName: 'S.', lastName: 'Jansen', full: 'S. Jansen' };
+
+  // API Helper Functions
+  async function apiCall(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const token = localStorage.getItem('asbest_jwt');
+    
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers
+      },
+      ...options
+    };
+    
+    try {
+      const response = await fetch(url, config);
+      if (response.status === 401) {
+        // Unauthorized - redirect to login
+        localStorage.removeItem('asbest_jwt');
+        window.location.href = '/auth';
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+  }
+
+  // Health Check
+  async function checkApiHealth() {
+    try {
+      const health = await apiCall('/healthz');
+      console.log('API Health:', health);
+      return health.status === 'healthy';
+    } catch (error) {
+      console.error('API Health Check Failed:', error);
+      return false;
+    }
+  }
+
+  function show(view){
+    document.querySelectorAll('[data-view]').forEach(v=>v.style.display='none');
+    document.querySelector(`[data-view="${view}"]`).style.display='block';
+    document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
+    const link = document.querySelector(`.nav a[data-link="${view}"]`);
+    if(link) link.classList.add('active');
+    document.getElementById('crumb').textContent = `${CURRENT_USER.full} / Tenant Admin / ${view}`;
+    
+    // Load data based on view
+    switch(view) {
+      case 'Rapporten':
+        loadReports();
+        break;
+      case 'Admin':
+        loadUsers();
+        break;
+    }
+  }
+
+  // Real upload functionality
+  async function uploadReport(file) {
+    if (!file) {
+      alert('Geen bestand geselecteerd');
+      return;
+    }
+
+    if (file.type !== 'application/pdf') {
+      alert('Alleen PDF bestanden zijn toegestaan');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const progressBar = document.getElementById('upload-progress');
+      const bar = document.getElementById('upload-bar');
+      
+      progressBar.style.display = 'block';
+      bar.style.width = '0%';
+
+      const response = await fetch(`${API_BASE_URL}/reports/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        bar.style.width = '100%';
+        alert(`✅ Rapport "${file.name}" succesvol geüpload!\n\nStatus: ${result.status}\nID: ${result.id}`);
+        loadReports(); // Refresh reports list
+      } else {
+        const error = await response.json();
+        alert(`❌ Upload mislukt: ${error.detail || 'Onbekende fout'}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(`❌ Upload mislukt: ${error.message}`);
+    } finally {
+      setTimeout(() => {
+        document.getElementById('upload-progress').style.display = 'none';
+      }, 2000);
+    }
+  }
+
+  // Load reports function
+  async function loadReports() {
+    try {
+      const data = await apiCall('/reports');
+      if (data && data.items) {
+        console.log('Reports loaded:', data);
+        updateReportsTable(data.items);
+        return data.items;
+      }
+    } catch (error) {
+      console.error('Failed to load reports:', error);
+    }
+    return [];
+  }
+
+  // Update reports table
+  function updateReportsTable(reports) {
+    const table = document.querySelector('[data-view="Rapporten"] table tbody');
+    if (!table) return;
+    
+    table.innerHTML = reports.map(report => `
+      <tr>
+        <td><a onclick="showReportDetail('${report.id}')">${report.filename || 'Onbekend'}</a></td>
+        <td><span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></td>
+        <td>${report.finding_count || '-'}</td>
+        <td>${report.score || '-'}</td>
+        <td>${formatDate(report.uploaded_at)}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
+          <button class="icon-btn" title="Download rapport">⬇️</button>
+          <button class="icon-btn" title="Download conclusie & aanbevelingen (PDF)">📝</button>
+          <button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function getStatusClass(status) {
+    switch(status) {
+      case 'DONE': return 'ok';
+      case 'PROCESSING': return 'warn';
+      case 'FAILED': return 'bad';
+      default: return 'bad';
+    }
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('nl-NL');
+  }
+  
+  // Report Detail Functions
+  let currentReportId = null;
+  
+  async function showReportDetail(reportId) {
+    currentReportId = reportId;
+    
+    // For now, show basic info from the reports list
+    // TODO: Implement full report detail API when fixed
+    const reports = await getReportsData();
+    const report = reports.find(r => r.id === reportId);
+    
+    if (report) {
+      updateReportDetailView(report);
+      show('Rapportdetail');
+    } else {
+      alert('Rapport niet gevonden');
+    }
+  }
+  
+  function updateReportDetailView(report) {
+    const title = document.querySelector('[data-view="Rapportdetail"] h3');
+    if (title) {
+      title.textContent = report.filename || 'Onbekend rapport';
+    }
+    
+    // Update summary section
+    const summaryCard = document.querySelector('[data-view="Rapportdetail"] .card[style*="background:#0d1224"]');
+    if (summaryCard) {
+      summaryCard.innerHTML = `
+        <h3>Rapport Informatie</h3>
+        <p><strong>Status:</strong> <span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></p>
+        <p><strong>Score:</strong> ${report.score || 'N/A'}</p>
+        <p><strong>Findings:</strong> ${report.finding_count || 0}</p>
+        <p><strong>Geüpload:</strong> ${formatDate(report.uploaded_at)}</p>
+        <p class="muted">Geüpload door ${report.uploaded_by_name || 'Onbekende gebruiker'}</p>
+      `;
+    }
+    
+    // Load analysis and findings data
+    loadAnalysisAndFindings(currentReportId);
+  }
+  
+  async function loadAnalysisAndFindings(reportId) {
+    try {
+      // Load analysis data
+      const analysisResponse = await apiCall(`/analyses/reports/${reportId}/analysis`);
+      if (analysisResponse && analysisResponse.ok) {
+        const analysis = await analysisResponse.json();
+        updateAnalysisView(analysis);
+      }
+      
+      // Load findings data
+      const findingsResponse = await apiCall(`/findings/reports/${reportId}/findings`);
+      if (findingsResponse && findingsResponse.ok) {
+        const findings = await findingsResponse.json();
+        updateFindingsView(findings);
+      }
+    } catch (error) {
+      console.error('Error loading analysis and findings:', error);
+    }
+  }
+  
+  function updateAnalysisView(analysis) {
+    const analysisCard = document.querySelector('[data-view="Rapportdetail"] .card:not([style*="background:#0d1224"])');
+    if (analysisCard) {
+      analysisCard.innerHTML = `
+        <h3>Analyse Resultaten</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#4CAF50">${analysis.score || 0}</div>
+            <div style="font-size:12px;color:#888">Score</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#2196F3">${analysis.rules_passed || 0}</div>
+            <div style="font-size:12px;color:#888">Regels Geslaagd</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#f44336">${analysis.rules_failed || 0}</div>
+            <div style="font-size:12px;color:#888">Regels Gefaald</div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Engine:</strong> ${analysis.engine || 'N/A'} (${analysis.engine_version || 'N/A'})
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Samenvatting:</strong><br>
+          <p style="margin:8px 0;color:#ccc">${analysis.summary || 'Geen samenvatting beschikbaar'}</p>
+        </div>
+        <div style="font-size:12px;color:#888">
+          <strong>Analyse uitgevoerd:</strong> ${formatDate(analysis.finished_at)} (${analysis.duration_ms || 0}ms)
+        </div>
+      `;
+    }
+  }
+  
+  function updateFindingsView(findings) {
+    // Find the findings card (the second card after analysis)
+    const cards = document.querySelectorAll('[data-view="Rapportdetail"] .card');
+    let findingsCard = null;
+    
+    // Look for the findings card (should be the last one)
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const card = cards[i];
+      if (card.innerHTML.includes('Findings & Analyse') || card.innerHTML.includes('Analyse resultaten worden geladen')) {
+        findingsCard = card;
+        break;
+      }
+    }
+    
+    if (findingsCard) {
+      if (findings.length === 0) {
+        findingsCard.innerHTML = `
+          <h3>Findings & Analyse</h3>
+          <p style="color:#4CAF50">✅ Geen findings gevonden - rapport voldoet aan alle regels!</p>
+        `;
+      } else {
+        // Group findings by severity
+        const findingsBySeverity = {
+          'CRITICAL': findings.filter(f => f.severity === 'CRITICAL'),
+          'HIGH': findings.filter(f => f.severity === 'HIGH'),
+          'MEDIUM': findings.filter(f => f.severity === 'MEDIUM'),
+          'LOW': findings.filter(f => f.severity === 'LOW')
+        };
+        
+        let findingsHTML = `
+          <h3>Findings & Analyse (${findings.length} bevindingen)</h3>
+          <div style="margin-bottom:16px">
+        `;
+        
+        // Add severity summary
+        Object.entries(findingsBySeverity).forEach(([severity, severityFindings]) => {
+          if (severityFindings.length > 0) {
+            const color = getSeverityColor(severity);
+            findingsHTML += `
+              <span style="display:inline-block;margin:4px 8px 4px 0;padding:4px 8px;background:${color};color:white;border-radius:4px;font-size:12px">
+                ${severity}: ${severityFindings.length}
+              </span>
+            `;
+          }
+        });
+        
+        findingsHTML += `</div>`;
+        
+        // Add individual findings
+        findings.forEach((finding, index) => {
+          const severityColor = getSeverityColor(finding.severity);
+          findingsHTML += `
+            <div style="margin-bottom:16px;padding:12px;background:#1a1a1a;border-radius:8px;border-left:4px solid ${severityColor}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <strong style="color:${severityColor}">${finding.severity}</strong>
+                <span style="font-size:12px;color:#888">${finding.rule_id}</span>
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Sectie:</strong> ${finding.section || 'N/A'}
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Probleem:</strong><br>
+                <p style="margin:4px 0;color:#ccc">${finding.message || 'Geen beschrijving'}</p>
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Aanbeveling:</strong><br>
+                <p style="margin:4px 0;color:#4CAF50">${finding.suggestion || 'Geen aanbeveling'}</p>
+              </div>
+              ${finding.tags && finding.tags.length > 0 ? `
+                <div>
+                  <strong>Tags:</strong>
+                  ${finding.tags.map(tag => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;background:#333;color:#ccc;border-radius:3px;font-size:11px">${tag}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        findingsCard.innerHTML = findingsHTML;
+      }
+    }
+  }
+  
+  function getSeverityColor(severity) {
+    switch(severity) {
+      case 'CRITICAL': return '#f44336';
+      case 'HIGH': return '#ff9800';
+      case 'MEDIUM': return '#ffeb3b';
+      case 'LOW': return '#4CAF50';
+      default: return '#888';
+    }
+  }
+  
+  async function getReportsData() {
+    try {
+      const data = await apiCall('/reports');
+      if (data && data.items) {
+        return data.items;
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error);
+    }
+    return [];
+  }
+  
+  async function downloadSource() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/source`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `source_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
+  }
+  
+  async function downloadConclusion() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/conclusion`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conclusion_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
+  }
+
+  function confirmDelete(){
+    if(confirm('Weet je zeker dat je dit rapport wilt verwijderen?')){
+      alert('Rapport verwijderd');
+    }
+  }
+
+  // Logout functionaliteit
+  function logout() {
+    localStorage.removeItem('asbest_jwt');
+    window.location.href = '/auth';
+  }
+
+  // Auto-logout na 30 minuten
+  let logoutTimer;
+  function resetLogoutTimer(){
+    clearTimeout(logoutTimer);
+    logoutTimer=setTimeout(()=>{
+      alert('Je bent automatisch uitgelogd na 30 minuten inactiviteit');
+      logout();
+    },1800000);
+  }
+  ['click','mousemove','keypress'].forEach(evt=>document.addEventListener(evt,resetLogoutTimer));
+  
+  // Auth check
+  function checkAuth() {
+    const token = localStorage.getItem('asbest_jwt');
+    if (!token) {
+      window.location.href = '/auth';
+      return false;
+    }
+    return true;
+  }
+
+  // Initialize app
+  window.onload=async ()=>{
+    // Check authentication first
+    if (!checkAuth()) return;
+    
+    resetLogoutTimer();
+    
+    // Check API health on startup
+    const apiHealthy = await checkApiHealth();
+    if (!apiHealthy) {
+      console.warn('API is not healthy - some features may not work');
+    }
+    
+    // Setup file upload
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+      fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          uploadReport(file);
+        }
+      });
+    }
+    
+    // Setup drag and drop
+    const uploader = document.getElementById('uploader');
+    if (uploader) {
+      uploader.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = '#6ea8fe';
+      });
+      
+      uploader.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = 'var(--border)';
+      });
+      
+      uploader.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploader.style.borderColor = 'var(--border)';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          uploadReport(file);
+        }
+      });
+    }
+    
+    show('Rapporten');
+  };
+
+  // Admin tab switch (alleen gebruikt op Admin-pagina)
+  function switchTab(tab){
+    document.querySelectorAll('.admin-tab').forEach(t=>t.style.display='none');
+    const el = document.getElementById(tab);
+    if(el) el.style.display='block';
+    document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+    const tabBtn = document.querySelector(`[data-tab="${tab}"]`);
+    if(tabBtn) tabBtn.classList.add('active');
+  }
+</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <div><strong>Asbest Tool</strong></div>
+        <div class="tenant">Tenant: Bedrijf Y</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#" data-link="Rapporten" onclick="show('Rapporten')">Rapporten</a>
+      <a href="#" data-link="Profiel" onclick="show('Profiel')">Profiel</a>
+    </nav>
+    <!-- Enige toevoeging t.o.v. User: extra Admin-menu onderaan -->
+    <nav class="nav" style="margin-top:auto">
+      <a href="#" data-link="Admin" onclick="show('Admin'); switchTab('bedrijf')">Admin</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="topbar">
+      <div class="crumbs" id="crumb">User</div>
+      <div>
+        <button class="btn ghost">Help</button>
+        <button class="btn" onclick="logout()">Uitloggen</button>
+      </div>
+    </div>
+
+    <!-- RAPPORTEN -->
+    <section data-view="Rapporten">
+      <div class="card">
+        <h3>Upload nieuw rapport</h3>
+        <div class="uploader" id="uploader">
+          <p><strong>Sleep je PDF hierheen</strong> of klik om te kiezen</p>
+          <p class="muted">Max 50 MB • Toegestaan: .pdf</p>
+          <input type="file" id="file-input" accept=".pdf" style="display: none;">
+          <button class="btn primary" onclick="document.getElementById('file-input').click()">Kies bestand</button>
+          <div class="progress" id="upload-progress" style="display: none;">
+            <div class="bar" id="upload-bar"></div>
+          </div>
+          <div id="upload-error" style="display:none;margin-top:10px;color:#ffb1b1">
+            Upload mislukt. <button class="btn" onclick="document.getElementById('file-input').click()">Opnieuw proberen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Rapporten</h3>
+        <table>
+          <thead>
+            <tr><th>Bestandsnaam (project)</th><th>Status</th><th>#Findings</th><th>Score</th><th>Uploaddatum</th><th>Acties</th></tr>
+          </thead>
+          <tbody>
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RAPPORTDETAIL -->
+    <section data-view="Rapportdetail" style="display:none">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3>Rapport Details</h3>
+          <button class="btn" onclick="show('Rapporten')">← Terug naar rapporten</button>
+        </div>
+
+        <div style="margin:8px 0 14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" onclick="downloadSource()">Download bronbestand</button>
+          <button class="btn" onclick="downloadConclusion()">Download conclusie & aanbevelingen (PDF)</button>
+        </div>
+
+        <div class="card" style="background:#0d1224">
+          <h3>Rapport Informatie</h3>
+          <p>Laden...</p>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Findings & Analyse</h3>
+          <p class="muted">Analyse resultaten worden geladen...</p>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Bevindingen</h3>
+          <ul>
+            <li><strong>R001 — Projectadres (Major):</strong> Postcode ontbreekt op p.2.</li>
+            <li><strong>R012 — RSKL ↔ maatregelen (Critical):</strong> 2A genoemd; maatregelen onvoldoende gespecificeerd.</li>
+          </ul>
+          <p class="muted">*De volledige onderbouwing is opgenomen in de PDF \"Conclusie & aanbevelingen\".*</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFIEL -->
+    <section data-view="Profiel" style="display:none">
+      <div class="card">
+        <h3>Mijn profiel</h3>
+        <div class="grid">
+          <div>
+            <label class="muted">Voornaam</label>
+            <input type="text" value="S."/>
+          </div>
+          <div>
+            <label class="muted">Achternaam</label>
+            <input type="text" value="Jansen"/>
+          </div>
+          <div>
+            <label class="muted">Email</label>
+            <input type="email" value="s.jansen@bedrijf-y.nl"/>
+          </div>
+          <div>
+            <label class="muted">Tenant</label>
+            <input type="text" value="Bedrijf Y" disabled/>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn primary">Opslaan</button>
+          <button class="btn">Wachtwoord wijzigen</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMIN (ENIGE NIEUWE PAGINA) -->
+    <section data-view="Admin" style="display:none">
+      <div class="tabs">
+        <div class="tab active" data-tab="bedrijf" onclick="switchTab('bedrijf')">Bedrijfsgegevens</div>
+        <div class="tab" data-tab="gebruikers" onclick="switchTab('gebruikers')">Gebruikers</div>
+      </div>
+
+      <!-- Bedrijfsgegevens tab -->
+      <div id="bedrijf" class="admin-tab">
+        <div class="card">
+          <h3>Bedrijfsgegevens</h3>
+          <label>Bedrijfsnaam</label>
+          <input type="text" value="Bedrijf Y"/>
+          <label>KvK nummer</label>
+          <input type="text" placeholder="12345678"/>
+          <label>Adres</label>
+          <input type="text" placeholder="Straat 1, 1234 AB Plaats"/>
+          <label>Contact e-mail</label>
+          <input type="email" value="info@bedrijf-y.nl"/>
+          <div style="margin-top:12px">
+            <button class="btn primary">Opslaan</button>
+            <button class="btn">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gebruikers tab -->
+      <div id="gebruikers" class="admin-tab" style="display:none">
+        <div class="card">
+          <h3>Nieuwe gebruiker aanmaken</h3>
+          <label>Voornaam</label>
+          <input type="text" placeholder="Voornaam"/>
+          <label>Achternaam</label>
+          <input type="text" placeholder="Achternaam"/>
+          <label>E-mail</label>
+          <input type="email" placeholder="naam@bedrijf.nl"/>
+          <label>Rol</label>
+          <select><option>User</option><option>Admin</option></select>
+          <div style="margin-top:10px">
+            <button class="btn primary">Verstuur uitnodiging</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Gebruikers</h3>
+          <table>
+            <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Status</th><th>Acties</th></tr>
+            <tr>
+              <td>Jan</td><td>de Vries</td><td>jan@gemeente-x.nl</td><td>Admin</td><td><span class="chip ok">Actief</span></td>
+              <td>
+                <button class="icon-btn" title="Deactiveer">🚫</button>
+                <button class="icon-btn" title="Reset wachtwoord">🔐</button>
+              </td>
+            </tr>
+            <tr>
+              <td>Sara</td><td>Bakker</td><td>s.bakker@gemeente-x.nl</td><td>User</td><td><span class="chip ok">Actief</span></td>
+              <td>
+                <button class="icon-btn" title="Maak Admin">⭐</button>
+                <button class="icon-btn" title="Deactiveer">🚫</button>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</body>
+</html>
