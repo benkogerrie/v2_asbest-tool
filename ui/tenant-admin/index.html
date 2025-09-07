@@ -281,6 +281,155 @@
         <p class="muted">Geüpload door ${report.uploaded_by_name || 'Onbekende gebruiker'}</p>
       `;
     }
+    
+    // Load analysis and findings data
+    loadAnalysisAndFindings(currentReportId);
+  }
+  
+  async function loadAnalysisAndFindings(reportId) {
+    try {
+      // Load analysis data
+      const analysisResponse = await apiCall(`/analyses/reports/${reportId}/analysis`);
+      if (analysisResponse && analysisResponse.ok) {
+        const analysis = await analysisResponse.json();
+        updateAnalysisView(analysis);
+      }
+      
+      // Load findings data
+      const findingsResponse = await apiCall(`/findings/reports/${reportId}/findings`);
+      if (findingsResponse && findingsResponse.ok) {
+        const findings = await findingsResponse.json();
+        updateFindingsView(findings);
+      }
+    } catch (error) {
+      console.error('Error loading analysis and findings:', error);
+    }
+  }
+  
+  function updateAnalysisView(analysis) {
+    const analysisCard = document.querySelector('[data-view="Rapportdetail"] .card:not([style*="background:#0d1224"])');
+    if (analysisCard) {
+      analysisCard.innerHTML = `
+        <h3>Analyse Resultaten</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#4CAF50">${analysis.score || 0}</div>
+            <div style="font-size:12px;color:#888">Score</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#2196F3">${analysis.rules_passed || 0}</div>
+            <div style="font-size:12px;color:#888">Regels Geslaagd</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:#1a1a1a;border-radius:8px">
+            <div style="font-size:24px;font-weight:bold;color:#f44336">${analysis.rules_failed || 0}</div>
+            <div style="font-size:12px;color:#888">Regels Gefaald</div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Engine:</strong> ${analysis.engine || 'N/A'} (${analysis.engine_version || 'N/A'})
+        </div>
+        <div style="margin-bottom:12px">
+          <strong>Samenvatting:</strong><br>
+          <p style="margin:8px 0;color:#ccc">${analysis.summary || 'Geen samenvatting beschikbaar'}</p>
+        </div>
+        <div style="font-size:12px;color:#888">
+          <strong>Analyse uitgevoerd:</strong> ${formatDate(analysis.finished_at)} (${analysis.duration_ms || 0}ms)
+        </div>
+      `;
+    }
+  }
+  
+  function updateFindingsView(findings) {
+    // Find the findings card (the second card after analysis)
+    const cards = document.querySelectorAll('[data-view="Rapportdetail"] .card');
+    let findingsCard = null;
+    
+    // Look for the findings card (should be the last one)
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const card = cards[i];
+      if (card.innerHTML.includes('Findings & Analyse') || card.innerHTML.includes('Analyse resultaten worden geladen')) {
+        findingsCard = card;
+        break;
+      }
+    }
+    
+    if (findingsCard) {
+      if (findings.length === 0) {
+        findingsCard.innerHTML = `
+          <h3>Findings & Analyse</h3>
+          <p style="color:#4CAF50">✅ Geen findings gevonden - rapport voldoet aan alle regels!</p>
+        `;
+      } else {
+        // Group findings by severity
+        const findingsBySeverity = {
+          'CRITICAL': findings.filter(f => f.severity === 'CRITICAL'),
+          'HIGH': findings.filter(f => f.severity === 'HIGH'),
+          'MEDIUM': findings.filter(f => f.severity === 'MEDIUM'),
+          'LOW': findings.filter(f => f.severity === 'LOW')
+        };
+        
+        let findingsHTML = `
+          <h3>Findings & Analyse (${findings.length} bevindingen)</h3>
+          <div style="margin-bottom:16px">
+        `;
+        
+        // Add severity summary
+        Object.entries(findingsBySeverity).forEach(([severity, severityFindings]) => {
+          if (severityFindings.length > 0) {
+            const color = getSeverityColor(severity);
+            findingsHTML += `
+              <span style="display:inline-block;margin:4px 8px 4px 0;padding:4px 8px;background:${color};color:white;border-radius:4px;font-size:12px">
+                ${severity}: ${severityFindings.length}
+              </span>
+            `;
+          }
+        });
+        
+        findingsHTML += `</div>`;
+        
+        // Add individual findings
+        findings.forEach((finding, index) => {
+          const severityColor = getSeverityColor(finding.severity);
+          findingsHTML += `
+            <div style="margin-bottom:16px;padding:12px;background:#1a1a1a;border-radius:8px;border-left:4px solid ${severityColor}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <strong style="color:${severityColor}">${finding.severity}</strong>
+                <span style="font-size:12px;color:#888">${finding.rule_id}</span>
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Sectie:</strong> ${finding.section || 'N/A'}
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Probleem:</strong><br>
+                <p style="margin:4px 0;color:#ccc">${finding.message || 'Geen beschrijving'}</p>
+              </div>
+              <div style="margin-bottom:8px">
+                <strong>Aanbeveling:</strong><br>
+                <p style="margin:4px 0;color:#4CAF50">${finding.suggestion || 'Geen aanbeveling'}</p>
+              </div>
+              ${finding.tags && finding.tags.length > 0 ? `
+                <div>
+                  <strong>Tags:</strong>
+                  ${finding.tags.map(tag => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;background:#333;color:#ccc;border-radius:3px;font-size:11px">${tag}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        findingsCard.innerHTML = findingsHTML;
+      }
+    }
+  }
+  
+  function getSeverityColor(severity) {
+    switch(severity) {
+      case 'CRITICAL': return '#f44336';
+      case 'HIGH': return '#ff9800';
+      case 'MEDIUM': return '#ffeb3b';
+      case 'LOW': return '#4CAF50';
+      default: return '#888';
+    }
   }
   
   async function getReportsData() {
