@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.auth.dependencies import get_current_system_owner  # of get_current_admin
 from app.models.prompt import Prompt, PromptOverride, PromptStatus, OverrideStatus
-from app.api.schemas.prompts import (
+from app.schemas.prompts import (
     PromptCreate, PromptUpdate, PromptOut,
     PromptOverrideCreate, PromptOverrideUpdate, PromptOverrideOut,
     PromptTestRunIn, PromptTestRunOut
