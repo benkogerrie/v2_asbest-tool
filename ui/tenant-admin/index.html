@@ -194,12 +194,11 @@
   // Load reports function
   async function loadReports() {
     try {
-      const response = await apiCall('/reports');
-      if (response && response.ok) {
-        const reports = await response.json();
-        console.log('Reports loaded:', reports);
-        updateReportsTable(reports);
-        return reports;
+      const data = await apiCall('/reports');
+      if (data && data.items) {
+        console.log('Reports loaded:', data);
+        updateReportsTable(data.items);
+        return data.items;
       }
     } catch (error) {
       console.error('Failed to load reports:', error);
@@ -434,9 +433,9 @@
   
   async function getReportsData() {
     try {
-      const response = await apiCall('/reports');
-      if (response && response.ok) {
-        return response.data.items || [];
+      const data = await apiCall('/reports');
+      if (data && data.items) {
+        return data.items;
       }
     } catch (error) {
       console.error('Error loading reports:', error);

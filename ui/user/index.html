@@ -121,10 +121,10 @@
   // Load Reports (User can only see own tenant reports)
   async function loadReports() {
     try {
-      const reports = await apiCall('/reports');
-      console.log('Reports loaded:', reports);
-      updateReportsTable(reports);
-      return reports;
+      const data = await apiCall('/reports');
+      console.log('Reports loaded:', data);
+      updateReportsTable(data.items || []);
+      return data.items || [];
     } catch (error) {
       console.error('Failed to load reports:', error);
       return [];
@@ -154,7 +154,7 @@
       }
       
       // Format date
-      const uploadDate = new Date(report.created_at).toLocaleDateString('nl-NL', {
+      const uploadDate = new Date(report.uploaded_at).toLocaleDateString('nl-NL', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -221,7 +221,7 @@
       summaryElement.textContent = report.summary || 'Geen samenvatting beschikbaar';
     }
     if (metaElement && analysis) {
-      const uploadDate = new Date(report.created_at).toLocaleDateString('nl-NL');
+      const uploadDate = new Date(report.uploaded_at).toLocaleDateString('nl-NL');
       metaElement.textContent = `Geüpload op ${uploadDate} door ${CURRENT_USER.full} • Score: ${analysis.score} • Engine: ${analysis.engine} ${analysis.engine_version}`;
     }
     
