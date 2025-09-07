@@ -2,10 +2,13 @@
 Report schemas for API requests and responses.
 """
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from app.models.report import ReportStatus
+
+if TYPE_CHECKING:
+    from typing import ForwardRef
 
 
 class ReportBase(BaseModel):
@@ -111,7 +114,7 @@ class ReportDetail(BaseModel):
     id: str = Field(..., description="Report ID")
     filename: str = Field(..., description="Original filename")
     summary: Optional[str] = Field(None, description="Report summary (placeholder until Slice 4)")
-    findings: List[FindingItem] = Field(default_factory=list, description="List of findings (placeholder until Slice 4)")
+    findings: List["FindingItem"] = Field(default_factory=list, description="List of findings (placeholder until Slice 4)")
     uploaded_at: datetime = Field(..., description="Upload timestamp")
     uploaded_by_name: Optional[str] = Field(None, description="Name of user who uploaded the file")
     tenant_name: Optional[str] = Field(None, description="Tenant name (only for SYSTEM_OWNER)")
