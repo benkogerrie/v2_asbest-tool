@@ -74,6 +74,13 @@ class Settings(BaseSettings):
     # CORS Configuration
     cors_origins: Optional[str] = "https://v21-asbest-tool-nutv.vercel.app,http://localhost:3000,http://localhost:8080,*"
     
+    # AI Configuration (Slice 8)
+    ai_provider: str = Field(default="anthropic", env="AI_PROVIDER")
+    ai_model: str = Field(default="claude-3-5-sonnet", env="AI_MODEL")
+    ai_api_key: str = Field(default="", env="AI_API_KEY")
+    ai_timeout: int = Field(default=60, env="AI_TIMEOUT")
+    ai_max_tokens: int = Field(default=4000, env="AI_MAX_TOKENS")
+    
     # Railway Port (for local testing compatibility)
     port: int = int(os.getenv("PORT", "8000"))
     

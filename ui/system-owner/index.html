@@ -110,6 +110,9 @@
         loadReports();
         loadTenantsForUpload();
         break;
+      case 'Prompts':
+        loadPrompts();
+        break;
       case 'Admin':
         loadTenants();
         loadUsers();
@@ -1003,6 +1006,153 @@ Tenant Details:
       });
     }
   };
+
+  // === PROMPT MANAGEMENT FUNCTIONS ===
+  
+  let currentPrompts = [];
+  let currentEditingPromptId = null;
+
+  async function loadPrompts() {
+    try {
+      const response = await apiCall('/admin/prompts');
+      if (response) {
+        currentPrompts = response;
+        updatePromptsTable(response);
+      }
+    } catch (error) {
+      console.error('Failed to load prompts:', error);
+      showToast('Fout bij laden van prompts', 'error');
+    }
+  }
+
+  function updatePromptsTable(prompts) {
+    const tbody = document.getElementById('prompts-table-body');
+    if (!tbody) return;
+
+    if (prompts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Geen prompts gevonden</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = prompts.map(prompt => `
+      <tr>
+        <td><strong>${prompt.name}</strong></td>
+        <td>v${prompt.version}</td>
+        <td><span class="chip ${getStatusClass(prompt.status)}">${prompt.status}</span></td>
+        <td>${prompt.overrides_count}</td>
+        <td>${new Date(prompt.updated_at).toLocaleDateString('nl-NL')}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="viewPrompt('${prompt.id}')">👁</button>
+          <button class="icon-btn" title="Bewerken" onclick="editPrompt('${prompt.id}')">✏️</button>
+          <button class="icon-btn" title="Test" onclick="testPrompt('${prompt.id}')">🧪</button>
+          ${prompt.status === 'active' ? 
+            '<button class="icon-btn" title="Archiveer" onclick="archivePrompt(\'' + prompt.id + '\')">📦</button>' :
+            '<button class="icon-btn" title="Activeer" onclick="activatePrompt(\'' + prompt.id + '\')">✅</button>'
+          }
+          <button class="icon-btn" title="Verwijder" onclick="deletePrompt('${prompt.id}')">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function getStatusClass(status) {
+    switch(status) {
+      case 'active': return 'ok';
+      case 'draft': return 'warn';
+      case 'archived': return 'bad';
+      default: return '';
+    }
+  }
+
+  function showPromptForm(promptId = null) {
+    // TODO: Implement prompt form modal
+    showToast('Prompt form wordt geïmplementeerd', 'info');
+  }
+
+  function viewPrompt(promptId) {
+    // TODO: Implement prompt viewer modal
+    showToast('Prompt viewer wordt geïmplementeerd', 'info');
+  }
+
+  function editPrompt(promptId) {
+    // TODO: Implement prompt editor modal
+    showToast('Prompt editor wordt geïmplementeerd', 'info');
+  }
+
+  async function testPrompt(promptId) {
+    try {
+      const response = await apiCall(`/admin/prompts/${promptId}/test-run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sample_text: "Dit is een testdocument voor prompt validatie.",
+          checklist: "- Scope van onderzoek\n- Risicobeoordeling\n- Handtekening",
+          provider: "anthropic",
+          model: "claude-3-5-sonnet"
+        })
+      });
+      
+      if (response) {
+        showToast('Test-run succesvol uitgevoerd', 'success');
+        console.log('Test result:', response);
+      }
+    } catch (error) {
+      console.error('Test-run failed:', error);
+      showToast('Test-run mislukt: ' + error.message, 'error');
+    }
+  }
+
+  async function activatePrompt(promptId) {
+    try {
+      const response = await apiCall(`/admin/prompts/${promptId}/activate`, {
+        method: 'POST'
+      });
+      
+      if (response) {
+        showToast('Prompt geactiveerd', 'success');
+        loadPrompts(); // Refresh table
+      }
+    } catch (error) {
+      console.error('Failed to activate prompt:', error);
+      showToast('Fout bij activeren van prompt', 'error');
+    }
+  }
+
+  async function archivePrompt(promptId) {
+    if (!confirm('Weet je zeker dat je deze prompt wilt archiveren?')) return;
+    
+    try {
+      const response = await apiCall(`/admin/prompts/${promptId}/archive`, {
+        method: 'POST'
+      });
+      
+      if (response) {
+        showToast('Prompt gearchiveerd', 'success');
+        loadPrompts(); // Refresh table
+      }
+    } catch (error) {
+      console.error('Failed to archive prompt:', error);
+      showToast('Fout bij archiveren van prompt', 'error');
+    }
+  }
+
+  async function deletePrompt(promptId) {
+    if (!confirm('Weet je zeker dat je deze prompt wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.')) return;
+    
+    try {
+      const response = await apiCall(`/admin/prompts/${promptId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response) {
+        showToast('Prompt verwijderd', 'success');
+        loadPrompts(); // Refresh table
+      }
+    } catch (error) {
+      console.error('Failed to delete prompt:', error);
+      showToast('Fout bij verwijderen van prompt', 'error');
+    }
+  }
 </script>
 </head>
 <body>
@@ -1017,6 +1167,7 @@ Tenant Details:
     </div>
     <nav class="nav">
       <a href="#" data-link="Rapporten" onclick="show('Rapporten')">Rapporten</a>
+      <a href="#" data-link="Prompts" onclick="show('Prompts')">AI Prompts</a>
       <a href="#" data-link="Profiel" onclick="show('Profiel')">Profiel</a>
     </nav>
     <nav class="nav" style="margin-top:auto">
@@ -1081,6 +1232,35 @@ Tenant Details:
         <div class="card" style="margin-top:12px">
           <h3>Findings & Analyse</h3>
           <p class="muted">Analyse resultaten worden geladen...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROMPTS -->
+    <section data-view="Prompts" style="display:none">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3>AI Prompts Management</h3>
+          <button class="btn primary" onclick="showPromptForm()">+ Nieuwe Prompt</button>
+        </div>
+        
+        <!-- Prompts Table -->
+        <div id="prompts-table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Naam</th>
+                <th>Versie</th>
+                <th>Status</th>
+                <th>Overrides</th>
+                <th>Bijgewerkt</th>
+                <th>Acties</th>
+              </tr>
+            </thead>
+            <tbody id="prompts-table-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--muted)">Laden...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
