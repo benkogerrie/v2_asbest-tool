@@ -860,13 +860,12 @@
           body: JSON.stringify(updateData)
         });
         
-        if (response && response.ok) {
+        if (response) {
           alert(`✅ Tenant "${formData.tenant.name}" succesvol bijgewerkt!`);
           resetTenantForm();
           loadTenants(); // Refresh tenants list
         } else {
-          const error = await response.json();
-          alert(`❌ Fout bij bijwerken: ${error.detail || 'Onbekende fout'}`);
+          alert(`❌ Fout bij bijwerken: Onbekende fout`);
         }
       } else {
         // Create new tenant with admin
@@ -878,14 +877,12 @@
           body: JSON.stringify(formData)
         });
         
-        if (response && response.ok) {
-          const result = await response.json();
-          alert(`✅ Tenant "${result.tenant.name}" en admin "${result.admin.first_name} ${result.admin.last_name}" succesvol aangemaakt!\n\nTijdelijk wachtwoord: ${result.temp_password}\nE-mail uitnodiging: ${result.invitation_sent ? 'Verzonden' : 'Niet verzonden'}`);
+        if (response) {
+          alert(`✅ Tenant "${response.tenant.name}" en admin "${response.admin.first_name} ${response.admin.last_name}" succesvol aangemaakt!\n\nTijdelijk wachtwoord: ${response.temp_password}\nE-mail uitnodiging: ${response.invitation_sent ? 'Verzonden' : 'Niet verzonden'}`);
           resetTenantForm();
           loadTenants(); // Refresh tenants list
         } else {
-          const error = await response.json();
-          alert(`❌ Fout bij aanmaken: ${error.detail || 'Onbekende fout'}`);
+          alert(`❌ Fout bij aanmaken: Onbekende fout`);
         }
       }
     } catch (error) {
