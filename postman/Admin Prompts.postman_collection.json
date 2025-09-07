@@ -1,0 +1,163 @@
+{
+  "info": {
+    "name": "Admin – Prompts",
+    "_postman_id": "a1e9e410-3b6d-4f8c-bb3f-9b7b7b7b7b7b",
+    "description": "CRUD + Test-Run voor prompts en overrides (System Owner).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "List Prompts",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts", "host": ["{{baseUrl}}"], "path": ["admin","prompts"] }
+      }
+    },
+    {
+      "name": "Create Prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"analysis_v1\",\n  \"role\": \"system\",\n  \"content\": \"# Analysis Prompt v1\\n{{CHECKLIST}}\\n{{SEVERITY_WEIGHTS}}\\n{{OUTPUT_SCHEMA}}\",\n  \"version\": 1,\n  \"status\": \"draft\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/admin/prompts", "host": ["{{baseUrl}}"], "path": ["admin","prompts"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Prompt",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}"] }
+      }
+    },
+    {
+      "name": "Update Prompt",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"content\": \"# Analysis Prompt v2\\n...\",\n  \"version\": 2,\n  \"status\": \"draft\"\n}" },
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}"] }
+      }
+    },
+    {
+      "name": "Activate Prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}/activate", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}","activate"] }
+      }
+    },
+    {
+      "name": "Archive Prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}/archive", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}","archive"] }
+      }
+    },
+    {
+      "name": "Delete Prompt",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}"] }
+      }
+    },
+    {
+      "name": "List Overrides",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}/overrides", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}","overrides"] }
+      }
+    },
+    {
+      "name": "Create Override",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"scope\": \"tenant:TENANT_ID\",\n  \"content_override\": \"# Tenant override\\n...\",\n  \"status\": \"draft\"\n}" },
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}/overrides", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}","overrides"] }
+      }
+    },
+    {
+      "name": "Update Override",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"status\": \"active\"\n}" },
+        "url": { "raw": "{{baseUrl}}/admin/prompts/overrides/{{override_id}}", "host": ["{{baseUrl}}"], "path": ["admin","prompts","overrides","{{override_id}}"] }
+      }
+    },
+    {
+      "name": "Activate Override",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts/overrides/{{override_id}}/activate", "host": ["{{baseUrl}}"], "path": ["admin","prompts","overrides","{{override_id}}","activate"] }
+      }
+    },
+    {
+      "name": "Delete Override",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" }
+        ],
+        "url": { "raw": "{{baseUrl}}/admin/prompts/overrides/{{override_id}}", "host": ["{{baseUrl}}"], "path": ["admin","prompts","overrides","{{override_id}}"] }
+      }
+    },
+    {
+      "name": "Test-Run Prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sample_text\": \"Dit is testtekst uit een rapport...\",\n  \"checklist\": \"- Scope\\n- Risico\\n- Handtekening\",\n  \"severity_weights\": {\"CRITICAL\":30,\"HIGH\":15,\"MEDIUM\":7,\"LOW\":3},\n  \"output_schema\": \"{ ... schema ... }\",\n  \"provider\": \"anthropic\",\n  \"model\": \"claude-3-5-sonnet\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/admin/prompts/{{prompt_id}}/test-run", "host": ["{{baseUrl}}"], "path": ["admin","prompts","{{prompt_id}}","test-run"] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "adminToken", "value": "REPLACE_WITH_JWT" },
+    { "key": "prompt_id", "value": "" },
+    { "key": "override_id", "value": "" }
+  ]
+}

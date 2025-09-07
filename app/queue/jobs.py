@@ -22,8 +22,85 @@ from app.services.analyzer.rules import analyze_text_to_result, run_rules_v1, RU
 from app.services.analyzer.text_extraction import extract_text_from_pdf
 from app.services.pdf.conclusion_reportlab import build_conclusion_pdf
 from app.services.email import email_service
+from app.queue.ai_analysis import run_ai_analysis
 
 logger = logging.getLogger(__name__)
+
+
+def process_report_with_ai(report_id: str, use_ai: bool = True) -> bool:
+    """
+    Process a report with AI analysis (Slice 8) or fallback to rules-based analysis.
+    
+    Args:
+        report_id: The UUID of the report to process
+        use_ai: Whether to use AI analysis (True) or rules-based analysis (False)
+        
+    Returns:
+        bool: True if processing succeeded, False otherwise
+    """
+    if use_ai:
+        return _process_report_ai(report_id)
+    else:
+        return process_report(report_id)
+
+
+def _process_report_ai(report_id: str) -> bool:
+    """
+    Process a report with AI analysis.
+    
+    Args:
+        report_id: The UUID of the report to process
+        
+    Returns:
+        bool: True if processing succeeded, False otherwise
+    """
+    logger.info(f"Starting AI analysis for report {report_id}")
+    
+    try:
+        # Create sync database session for RQ worker
+        db_url = get_db_url()
+        logger.info(f"Using database URL: {db_url[:50]}...")
+        engine = create_engine(db_url)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    except Exception as e:
+        logger.error(f"Failed to create database engine: {e}")
+        return False
+    
+    with SessionLocal() as session:
+        try:
+            # Get report
+            report = session.query(Report).filter(Report.id == uuid.UUID(report_id)).first()
+            if not report:
+                logger.error(f"Report {report_id} not found")
+                return False
+
+            # Create audit log for AI process start
+            audit_start = ReportAuditLog(
+                report_id=report.id,
+                action=AuditAction.PROCESS_START,
+                note="AI analysis started"
+            )
+            session.add(audit_start)
+            session.commit()
+
+            # TODO: Download PDF from storage and run AI analysis
+            # For now, fallback to rules-based analysis
+            logger.warning("AI analysis not fully implemented yet, falling back to rules-based analysis")
+            return process_report(report_id)
+
+        except Exception as e:
+            logger.error(f"AI analysis failed for report {report_id}: {e}")
+            
+            # Log AI analysis failure
+            audit_failed = ReportAuditLog(
+                report_id=uuid.UUID(report_id),
+                action=AuditAction.PROCESS_FAILED,
+                note=f"AI analysis failed: {str(e)}"
+            )
+            session.add(audit_failed)
+            session.commit()
+            
+            return False
 
 
 def process_report(report_id: str) -> bool:
