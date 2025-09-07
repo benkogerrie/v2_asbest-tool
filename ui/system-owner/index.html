@@ -131,10 +131,9 @@
   async function loadTenants() {
     try {
       const response = await apiCall('/tenants/');
-      if (response && response.ok) {
-        const tenants = await response.json();
-        console.log('Tenants loaded:', tenants);
-        updateTenantsTable(tenants);
+      if (response) {
+        console.log('Tenants loaded:', response);
+        updateTenantsTable(response);
         return tenants;
       }
     } catch (error) {
@@ -147,10 +146,9 @@
   async function loadUsers() {
     try {
       const response = await apiCall('/users/');
-      if (response && response.ok) {
-        const users = await response.json();
-        console.log('Users loaded:', users);
-        updateUsersTable(users);
+      if (response) {
+        console.log('Users loaded:', response);
+        updateUsersTable(response);
         loadTenantsForUserFilter(users);
         return users;
       } else {
@@ -178,10 +176,9 @@
   async function loadReports() {
     try {
       const response = await apiCall('/reports/');
-      if (response && response.ok) {
-        const data = await response.json();
-        console.log('Reports loaded:', data);
-        updateReportsTable(data.items || []);
+      if (response) {
+        console.log('Reports loaded:', response);
+        updateReportsTable(response.items || []);
         return data.items || [];
       }
     } catch (error) {
@@ -194,19 +191,18 @@
   async function loadTenantsForUpload() {
     try {
       const response = await apiCall('/tenants/');
-      if (response && response.ok) {
-        const tenants = await response.json();
+      if (response) {
         const select = document.getElementById('upload-tenant-select');
         if (select) {
           select.innerHTML = '<option value="">Selecteer tenant...</option>';
-          tenants.forEach(tenant => {
+          response.forEach(tenant => {
             const option = document.createElement('option');
             option.value = tenant.id;
             option.textContent = tenant.name;
             select.appendChild(option);
           });
         }
-        return tenants;
+        return response;
       }
     } catch (error) {
       console.error('Failed to load tenants for upload:', error);
@@ -314,14 +310,12 @@
         body: formData
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response) {
         bar.style.width = '100%';
-        alert(`✅ Rapport "${file.name}" succesvol geüpload!\n\nStatus: ${result.status}\nID: ${result.id}`);
+        alert(`✅ Rapport "${file.name}" succesvol geüpload!\n\nStatus: ${response.status}\nID: ${response.id}`);
         loadReports(); // Refresh reports list
       } else {
-        const error = await response.json();
-        alert(`❌ Upload mislukt: ${error.detail || 'Onbekende fout'}`);
+        alert(`❌ Upload mislukt: HTTP ${response.status}`);
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -564,9 +558,8 @@
   async function getReportsData() {
     try {
       const response = await apiCall('/reports/');
-      if (response && response.ok) {
-        const data = await response.json();
-        return data.items || [];
+      if (response) {
+        return response.items || [];
       }
     } catch (error) {
       console.error('Error loading reports:', error);
@@ -659,12 +652,11 @@
   async function loadTenantsForUserForm() {
     try {
       const response = await apiCall('/tenants/');
-      if (response && response.ok) {
-        const tenants = await response.json();
+      if (response) {
         const select = document.getElementById('user-tenant');
         if (select) {
           select.innerHTML = '<option value="">Selecteer tenant...</option>';
-          tenants.forEach(tenant => {
+          response.forEach(tenant => {
             select.innerHTML += `<option value="${tenant.id}">${tenant.name}</option>`;
           });
         }
@@ -677,24 +669,23 @@
   async function editUser(userId) {
     try {
       const response = await apiCall(`/users/${userId}`);
-      if (response && response.ok) {
-        const user = await response.json();
+      if (response) {
         currentEditingUserId = userId;
         
         // Populate form
         document.getElementById('user-form-title').textContent = 'User Bewerken';
-        document.getElementById('user-first-name').value = user.first_name || '';
-        document.getElementById('user-last-name').value = user.last_name || '';
-        document.getElementById('user-email').value = user.email || '';
-        document.getElementById('user-role').value = user.role || '';
-        document.getElementById('user-phone').value = user.phone || '';
-        document.getElementById('user-department').value = user.department || '';
-        document.getElementById('user-job-title').value = user.job_title || '';
-        document.getElementById('user-employee-id').value = user.employee_id || '';
+        document.getElementById('user-first-name').value = response.first_name || '';
+        document.getElementById('user-last-name').value = response.last_name || '';
+        document.getElementById('user-email').value = response.email || '';
+        document.getElementById('user-role').value = response.role || '';
+        document.getElementById('user-phone').value = response.phone || '';
+        document.getElementById('user-department').value = response.department || '';
+        document.getElementById('user-job-title').value = response.job_title || '';
+        document.getElementById('user-employee-id').value = response.employee_id || '';
         
         // Load tenants and set current tenant
         await loadTenantsForUserForm();
-        document.getElementById('user-tenant').value = user.tenant_id || '';
+        document.getElementById('user-tenant').value = response.tenant_id || '';
         
         document.getElementById('user-form-card').style.display = 'block';
       } else {
@@ -716,7 +707,7 @@
         method: 'DELETE'
       });
       
-      if (response && response.ok) {
+      if (response) {
         alert('User succesvol verwijderd');
         loadUsers(); // Refresh users list
       } else {
@@ -733,8 +724,8 @@
     
     try {
       const response = await apiCall('/users/');
-      if (response && response.ok) {
-        let users = await response.json();
+      if (response) {
+        let users = response;
         
         // Filter users by selected tenant
         if (selectedTenant) {
@@ -789,7 +780,7 @@
             });
           }
           
-          if (response && response.ok) {
+          if (response) {
             alert(currentEditingUserId ? 'User succesvol bijgewerkt' : 'User succesvol aangemaakt');
             hideUserForm();
             loadUsers(); // Refresh users list
@@ -798,7 +789,7 @@
           }
         } catch (error) {
           console.error('Error saving user:', error);
-          alert('Error bij het opslaan van user');
+          alert(`Error bij het opslaan van user: ${error.message}`);
         }
       });
     }
@@ -895,21 +886,19 @@
   async function viewTenant(tenantId) {
     try {
       const response = await apiCall(`/tenants/${tenantId}`);
-      if (response && response.ok) {
-        const tenant = await response.json();
-        
+      if (response) {
         // Show tenant details in a modal or alert for now
         const details = `
 Tenant Details:
-- Naam: ${tenant.name}
-- KvK: ${tenant.kvk || 'N/A'}
-- Contact Email: ${tenant.contact_email || 'N/A'}
-- Telefoon: ${tenant.phone || 'N/A'}
-- Adres: ${tenant.address || 'N/A'}
-- Postcode: ${tenant.postal_code || 'N/A'}
-- Plaats: ${tenant.city || 'N/A'}
-- Land: ${tenant.country || 'N/A'}
-- Aangemaakt: ${new Date(tenant.created_at).toLocaleDateString('nl-NL')}
+- Naam: ${response.name}
+- KvK: ${response.kvk || 'N/A'}
+- Contact Email: ${response.contact_email || 'N/A'}
+- Telefoon: ${response.phone || 'N/A'}
+- Adres: ${response.address || 'N/A'}
+- Postcode: ${response.postal_code || 'N/A'}
+- Plaats: ${response.city || 'N/A'}
+- Land: ${response.country || 'N/A'}
+- Aangemaakt: ${new Date(response.created_at).toLocaleDateString('nl-NL')}
         `;
         alert(details);
       } else {
@@ -924,18 +913,17 @@ Tenant Details:
   async function editTenant(tenantId) {
     try {
       const response = await apiCall(`/tenants/${tenantId}`);
-      if (response && response.ok) {
-        const tenant = await response.json();
+      if (response) {
         currentEditingTenantId = tenantId;
         
         // Populate tenant form with existing data
-        document.getElementById('tenant-name').value = tenant.name || '';
-        document.getElementById('tenant-kvk').value = tenant.kvk || '';
-        document.getElementById('tenant-email').value = tenant.contact_email || '';
-        document.getElementById('tenant-phone').value = tenant.phone || '';
-        document.getElementById('tenant-address').value = tenant.address || '';
-        document.getElementById('tenant-website').value = tenant.website || '';
-        document.getElementById('tenant-industry').value = tenant.industry || '';
+        document.getElementById('tenant-name').value = response.name || '';
+        document.getElementById('tenant-kvk').value = response.kvk || '';
+        document.getElementById('tenant-email').value = response.contact_email || '';
+        document.getElementById('tenant-phone').value = response.phone || '';
+        document.getElementById('tenant-address').value = response.address || '';
+        document.getElementById('tenant-website').value = response.website || '';
+        document.getElementById('tenant-industry').value = response.industry || '';
         
         // Change form title and submit button
         document.querySelector('#tenant-form h3').textContent = 'Tenant Bewerken';
@@ -962,7 +950,7 @@ Tenant Details:
         method: 'DELETE'
       });
       
-      if (response && response.ok) {
+      if (response) {
         alert('Tenant succesvol verwijderd');
         loadTenants(); // Refresh tenants list
       } else {
