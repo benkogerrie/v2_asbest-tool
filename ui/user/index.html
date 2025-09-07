@@ -121,7 +121,7 @@
   // Load Reports (User can only see own tenant reports)
   async function loadReports() {
     try {
-      const data = await apiCall('/reports');
+      const data = await apiCall('/reports/');
       console.log('Reports loaded:', data);
       updateReportsTable(data.items || []);
       return data.items || [];

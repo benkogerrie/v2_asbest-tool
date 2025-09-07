@@ -179,7 +179,7 @@
   // Load Reports
   async function loadReports() {
     try {
-      const response = await apiCall('/reports');
+      const response = await apiCall('/reports/');
       if (response && response.ok) {
         const data = await response.json();
         console.log('Reports loaded:', data);

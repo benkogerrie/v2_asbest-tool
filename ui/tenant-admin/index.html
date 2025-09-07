@@ -195,7 +195,7 @@
   // Load reports function
   async function loadReports() {
     try {
-      const data = await apiCall('/reports');
+      const data = await apiCall('/reports/');
       if (data && data.items) {
         console.log('Reports loaded:', data);
         updateReportsTable(data.items);
@@ -435,7 +435,7 @@
   
   async function getReportsData() {
     try {
-      const data = await apiCall('/reports');
+      const data = await apiCall('/reports/');
       if (data && data.items) {
         return data.items;
       }
