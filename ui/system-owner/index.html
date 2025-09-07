@@ -75,23 +75,21 @@
         window.location.href = '/auth';
         return null;
       }
-      return response;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
     } catch (error) {
       console.error('API Error:', error);
-      return null;
+      throw error;
     }
   }
 
   async function checkApiHealth() {
     try {
       const response = await apiCall('/healthz');
-      if (response && response.ok) {
-        console.log('✅ API is healthy');
-        return true;
-      } else {
-        console.log('❌ API is not healthy');
-        return false;
-      }
+      console.log('✅ API is healthy:', response);
+      return response.status === 'healthy';
     } catch (error) {
       console.log('❌ API Health Check Failed:', error);
       return false;
@@ -887,7 +885,7 @@
       }
     } catch (error) {
       console.error('Failed to create/update tenant:', error);
-      alert('❌ Fout bij aanmaken/bijwerken van tenant');
+      alert(`❌ Fout bij aanmaken/bijwerken van tenant: ${error.message}`);
     }
   }
   
