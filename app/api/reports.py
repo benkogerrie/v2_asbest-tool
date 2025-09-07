@@ -204,61 +204,14 @@ async def list_reports(
     session: AsyncSession = Depends(get_db)
 ):
     """List reports with filtering, sorting and pagination."""
-    from app.services.reports import ReportService
     
-    # Validate sort parameter
-    valid_sorts = ["uploaded_at_desc", "uploaded_at_asc", "filename_asc", "filename_desc"]
-    if sort not in valid_sorts:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid sort parameter. Valid options: {', '.join(valid_sorts)}"
-        )
-    
-    # Validate tenant_id parameter (only allowed for SYSTEM_OWNER)
-    if tenant_id and current_user.role != UserRole.SYSTEM_OWNER:
-        raise HTTPException(
-            status_code=403,
-            detail="tenant_id filter is only allowed for SYSTEM_OWNER"
-        )
-    
-    # Validate tenant_id format if provided
-    if tenant_id:
-        try:
-            uuid.UUID(tenant_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=422,
-                detail="Invalid tenant_id format"
-            )
-    
-    service = ReportService(session)
-    try:
-        reports, total = await service.get_reports_with_filters(
-            current_user=current_user,
-            page=page,
-            page_size=page_size,
-            status=status,
-            tenant_id=tenant_id,
-            q=q,
-            sort=sort
-        )
-    except ValueError as e:
-        if "Tenant not found" in str(e):
-            raise HTTPException(
-                status_code=404,
-                detail="Tenant not found"
-            )
-        else:
-            raise HTTPException(
-                status_code=422,
-                detail=str(e)
-            )
-    
+    # SIMPLIFIED VERSION FOR DEBUGGING
+    # Just return user info and empty reports list to test if authentication works
     return ReportListResponse(
-        items=reports,
+        items=[],
         page=page,
         page_size=page_size,
-        total=total
+        total=0
     )
 
 
