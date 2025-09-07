@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
 from app.config import settings
-from app.api import health, tenants, users, reports, analyses, findings
+from app.api import health, tenants, users, reports, analyses, findings, debug
 from app.auth.auth import fastapi_users, auth_backend
 from app.models.user import User
 from app.schemas.user import UserRead, UserCreate
@@ -48,6 +48,7 @@ app.include_router(users.router)
 app.include_router(reports.router)
 app.include_router(analyses.router)
 app.include_router(findings.router)
+app.include_router(debug.router)
 
 # Include FastAPI Users routes
 app.include_router(fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"])
