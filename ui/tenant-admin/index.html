@@ -216,9 +216,9 @@
       <tr>
         <td><a onclick="show('Rapportdetail')">${report.filename || 'Onbekend'}</a></td>
         <td><span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></td>
-        <td>${report.findings_count || '-'}</td>
+        <td>${report.finding_count || '-'}</td>
         <td>${report.score || '-'}</td>
-        <td>${formatDate(report.created_at)}</td>
+        <td>${formatDate(report.uploaded_at)}</td>
         <td>
           <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
           <button class="icon-btn" title="Download rapport">⬇️</button>
