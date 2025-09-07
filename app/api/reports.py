@@ -16,7 +16,8 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.report import Report, ReportAuditLog, ReportStatus, AuditAction
 from app.schemas.report import ReportOut, ReportListResponse, ReportDetail
-from app.auth.auth import fastapi_users, get_current_admin_or_system_owner
+from app.auth.auth import fastapi_users
+from app.auth.dependencies import get_current_admin_or_system_owner
 from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
 from app.config import settings
