@@ -153,6 +153,7 @@
         const users = await response.json();
         console.log('Users loaded:', users);
         updateUsersTable(users);
+        loadTenantsForUserFilter(users);
         return users;
       } else {
         console.error('Failed to load users:', response.status, response.statusText);
@@ -161,6 +162,18 @@
       console.error('Failed to load users:', error);
     }
     return [];
+  }
+  
+  function loadTenantsForUserFilter(users) {
+    // Extract unique tenants from users
+    const tenants = [...new Set(users.map(user => user.tenant_name).filter(Boolean))];
+    const select = document.getElementById('user-tenant-filter');
+    if (select) {
+      select.innerHTML = '<option value="">Alle Tenants</option>';
+      tenants.forEach(tenantName => {
+        select.innerHTML += `<option value="${tenantName}">${tenantName}</option>`;
+      });
+    }
   }
 
   // Load Reports
@@ -223,7 +236,7 @@
   }
 
   function updateUsersTable(users) {
-    const table = document.querySelector('#users table tbody');
+    const table = document.querySelector('#users-table-body');
     if (!table) return;
     
     table.innerHTML = users.map(user => `
@@ -232,7 +245,12 @@
         <td>${user.last_name || '-'}</td>
         <td>${user.email}</td>
         <td>${user.role}</td>
+        <td>${user.tenant_name || '-'}</td>
         <td><span class="chip ${user.is_active ? 'ok' : 'bad'}">${user.is_active ? 'Actief' : 'Inactief'}</span></td>
+        <td>
+          <button class="icon-btn" title="Bewerk" onclick="editUser('${user.id}')">✏️</button>
+          <button class="icon-btn" title="Verwijder" onclick="deleteUser('${user.id}')">🗑️</button>
+        </td>
       </tr>
     `).join('');
   }
@@ -471,6 +489,170 @@
       alert('Download mislukt');
     }
   }
+
+  // User Management Functions
+  let currentEditingUserId = null;
+  
+  function showCreateUserForm() {
+    currentEditingUserId = null;
+    document.getElementById('user-form-title').textContent = 'Nieuwe User Aanmaken';
+    document.getElementById('user-form').reset();
+    document.getElementById('user-form-card').style.display = 'block';
+    loadTenantsForUserForm();
+  }
+  
+  function hideUserForm() {
+    document.getElementById('user-form-card').style.display = 'none';
+    currentEditingUserId = null;
+  }
+  
+  async function loadTenantsForUserForm() {
+    try {
+      const response = await apiCall('/tenants');
+      if (response && response.ok) {
+        const tenants = await response.json();
+        const select = document.getElementById('user-tenant');
+        if (select) {
+          select.innerHTML = '<option value="">Selecteer tenant...</option>';
+          tenants.forEach(tenant => {
+            select.innerHTML += `<option value="${tenant.id}">${tenant.name}</option>`;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading tenants for user form:', error);
+    }
+  }
+  
+  async function editUser(userId) {
+    try {
+      const response = await apiCall(`/users/${userId}`);
+      if (response && response.ok) {
+        const user = await response.json();
+        currentEditingUserId = userId;
+        
+        // Populate form
+        document.getElementById('user-form-title').textContent = 'User Bewerken';
+        document.getElementById('user-first-name').value = user.first_name || '';
+        document.getElementById('user-last-name').value = user.last_name || '';
+        document.getElementById('user-email').value = user.email || '';
+        document.getElementById('user-role').value = user.role || '';
+        document.getElementById('user-phone').value = user.phone || '';
+        document.getElementById('user-department').value = user.department || '';
+        document.getElementById('user-job-title').value = user.job_title || '';
+        document.getElementById('user-employee-id').value = user.employee_id || '';
+        
+        // Load tenants and set current tenant
+        await loadTenantsForUserForm();
+        document.getElementById('user-tenant').value = user.tenant_id || '';
+        
+        document.getElementById('user-form-card').style.display = 'block';
+      } else {
+        alert('User niet gevonden');
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+      alert('Error bij het laden van user');
+    }
+  }
+  
+  async function deleteUser(userId) {
+    if (!confirm('Weet je zeker dat je deze user wilt verwijderen?')) {
+      return;
+    }
+    
+    try {
+      const response = await apiCall(`/users/${userId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response && response.ok) {
+        alert('User succesvol verwijderd');
+        loadUsers(); // Refresh users list
+      } else {
+        alert('Error bij het verwijderen van user');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error bij het verwijderen van user');
+    }
+  }
+  
+  async function filterUsersByTenant() {
+    const selectedTenant = document.getElementById('user-tenant-filter').value;
+    
+    try {
+      const response = await apiCall('/users');
+      if (response && response.ok) {
+        let users = await response.json();
+        
+        // Filter users by selected tenant
+        if (selectedTenant) {
+          users = users.filter(user => user.tenant_name === selectedTenant);
+        }
+        
+        updateUsersTable(users);
+      }
+    } catch (error) {
+      console.error('Error filtering users:', error);
+    }
+  }
+  
+  // User form submission
+  document.addEventListener('DOMContentLoaded', function() {
+    const userForm = document.getElementById('user-form');
+    if (userForm) {
+      userForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = {
+          first_name: document.getElementById('user-first-name').value,
+          last_name: document.getElementById('user-last-name').value,
+          email: document.getElementById('user-email').value,
+          role: document.getElementById('user-role').value,
+          tenant_id: document.getElementById('user-tenant').value,
+          phone: document.getElementById('user-phone').value,
+          department: document.getElementById('user-department').value,
+          job_title: document.getElementById('user-job-title').value,
+          employee_id: document.getElementById('user-employee-id').value
+        };
+        
+        try {
+          let response;
+          if (currentEditingUserId) {
+            // Update existing user
+            response = await apiCall(`/users/${currentEditingUserId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(formData)
+            });
+          } else {
+            // Create new user
+            response = await apiCall('/users', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(formData)
+            });
+          }
+          
+          if (response && response.ok) {
+            alert(currentEditingUserId ? 'User succesvol bijgewerkt' : 'User succesvol aangemaakt');
+            hideUserForm();
+            loadUsers(); // Refresh users list
+          } else {
+            alert('Error bij het opslaan van user');
+          }
+        } catch (error) {
+          console.error('Error saving user:', error);
+          alert('Error bij het opslaan van user');
+        }
+      });
+    }
+  });
 
   // Tenant Management Functions
   function resetTenantForm() {
@@ -774,16 +956,87 @@
 
       <div id="users" class="admin-tab" style="display:none">
         <div class="card">
-          <h3>Users (filter op tenant)</h3>
-          <select><option>Alle</option><option>Bedrijf Y</option><option>Gemeente X</option></select>
+          <h3>Users Management</h3>
+          <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+            <button class="btn primary" onclick="showCreateUserForm()">+ Nieuwe User</button>
+            <select id="user-tenant-filter" onchange="filterUsersByTenant()">
+              <option value="">Alle Tenants</option>
+            </select>
+          </div>
           <table style="margin-top:12px">
             <thead>
-              <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Status</th></tr>
+              <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Tenant</th><th>Status</th><th>Acties</th></tr>
             </thead>
-            <tbody>
+            <tbody id="users-table-body">
               <!-- Dynamically populated -->
             </tbody>
           </table>
+        </div>
+        
+        <!-- Create/Edit User Form -->
+        <div class="card" id="user-form-card" style="display:none;margin-top:12px">
+          <h3 id="user-form-title">Nieuwe User Aanmaken</h3>
+          <form id="user-form">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Voornaam *</label>
+                <input type="text" id="user-first-name" required>
+              </div>
+              <div>
+                <label>Achternaam *</label>
+                <input type="text" id="user-last-name" required>
+              </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Email *</label>
+                <input type="email" id="user-email" required>
+              </div>
+              <div>
+                <label>Rol *</label>
+                <select id="user-role" required>
+                  <option value="USER">User</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="SYSTEM_OWNER">System Owner</option>
+                </select>
+              </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Tenant *</label>
+                <select id="user-tenant" required>
+                  <option value="">Selecteer tenant...</option>
+                </select>
+              </div>
+              <div>
+                <label>Telefoon</label>
+                <input type="tel" id="user-phone">
+              </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Afdeling</label>
+                <input type="text" id="user-department">
+              </div>
+              <div>
+                <label>Functietitel</label>
+                <input type="text" id="user-job-title">
+              </div>
+            </div>
+            
+            <div style="margin-bottom:12px">
+              <label>Medewerker ID</label>
+              <input type="text" id="user-employee-id">
+            </div>
+            
+            <div style="display:flex;gap:8px">
+              <button type="submit" class="btn primary">Opslaan</button>
+              <button type="button" class="btn" onclick="hideUserForm()">Annuleren</button>
+            </div>
+          </form>
         </div>
       </div>
     </section>
