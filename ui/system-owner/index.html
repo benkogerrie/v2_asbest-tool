@@ -132,7 +132,7 @@
   // Load Tenants
   async function loadTenants() {
     try {
-      const response = await apiCall('/tenants');
+      const response = await apiCall('/tenants/');
       if (response && response.ok) {
         const tenants = await response.json();
         console.log('Tenants loaded:', tenants);
@@ -148,7 +148,7 @@
   // Load Users
   async function loadUsers() {
     try {
-      const response = await apiCall('/users');
+      const response = await apiCall('/users/');
       if (response && response.ok) {
         const users = await response.json();
         console.log('Users loaded:', users);
@@ -195,7 +195,7 @@
   // Load tenants for upload selector
   async function loadTenantsForUpload() {
     try {
-      const response = await apiCall('/tenants');
+      const response = await apiCall('/tenants/');
       if (response && response.ok) {
         const tenants = await response.json();
         const select = document.getElementById('upload-tenant-select');
@@ -565,7 +565,7 @@
   
   async function getReportsData() {
     try {
-      const response = await apiCall('/reports');
+      const response = await apiCall('/reports/');
       if (response && response.ok) {
         const data = await response.json();
         return data.items || [];
@@ -660,7 +660,7 @@
   
   async function loadTenantsForUserForm() {
     try {
-      const response = await apiCall('/tenants');
+      const response = await apiCall('/tenants/');
       if (response && response.ok) {
         const tenants = await response.json();
         const select = document.getElementById('user-tenant');
@@ -734,7 +734,7 @@
     const selectedTenant = document.getElementById('user-tenant-filter').value;
     
     try {
-      const response = await apiCall('/users');
+      const response = await apiCall('/users/');
       if (response && response.ok) {
         let users = await response.json();
         
