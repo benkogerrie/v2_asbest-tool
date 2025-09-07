@@ -15,7 +15,8 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.report import Report, ReportAuditLog, ReportStatus, AuditAction
 from app.schemas.report import ReportOut, ReportListResponse, ReportDetail
-from app.auth.dependencies import get_current_active_user, get_current_admin_or_system_owner
+from app.auth.dependencies import get_current_active_user
+from app.auth.auth import fastapi_users, get_current_admin_or_system_owner
 from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
 from app.config import settings
@@ -200,7 +201,7 @@ async def list_reports(
     tenant_id: Optional[str] = Query(None, description="Filter by tenant ID (SYSTEM_OWNER only)"),
     q: Optional[str] = Query(None, description="Search in filename"),
     sort: str = Query("uploaded_at_desc", description="Sort order"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
     session: AsyncSession = Depends(get_db)
 ):
     """List reports with filtering, sorting and pagination."""
