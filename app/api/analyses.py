@@ -38,7 +38,7 @@ async def get_latest_analysis(
     analysis = result.scalar_one_or_none()
     
     if not analysis:
-        return None
+        raise HTTPException(status_code=404, detail="Analysis not found")
     
     return {
         "id": str(analysis.id),

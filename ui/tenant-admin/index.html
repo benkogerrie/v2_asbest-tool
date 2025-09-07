@@ -149,8 +149,9 @@
       return;
     }
 
-    if (file.type !== 'application/pdf') {
-      alert('Alleen PDF bestanden zijn toegestaan');
+    if (file.type !== 'application/pdf' && 
+        file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      alert('Alleen PDF en DOCX bestanden zijn toegestaan');
       return;
     }
 
@@ -233,6 +234,7 @@
       case 'DONE': return 'ok';
       case 'PROCESSING': return 'warn';
       case 'FAILED': return 'bad';
+      case 'DELETED_SOFT': return 'deleted';
       default: return 'bad';
     }
   }
@@ -325,7 +327,7 @@
           </div>
         </div>
         <div style="margin-bottom:12px">
-          <strong>Engine:</strong> ${analysis.engine || 'N/A'} (${analysis.engine_version || 'N/A'})
+          <strong>Engine:</strong> ${analysis.engine || 'N/A'} v${analysis.engine_version || 'N/A'}
         </div>
         <div style="margin-bottom:12px">
           <strong>Samenvatting:</strong><br>
@@ -637,9 +639,9 @@
       <div class="card">
         <h3>Upload nieuw rapport</h3>
         <div class="uploader" id="uploader">
-          <p><strong>Sleep je PDF hierheen</strong> of klik om te kiezen</p>
-          <p class="muted">Max 50 MB • Toegestaan: .pdf</p>
-          <input type="file" id="file-input" accept=".pdf" style="display: none;">
+          <p><strong>Sleep je bestand hierheen</strong> of klik om te kiezen</p>
+          <p class="muted">Max 50 MB • Toegestaan: .pdf, .docx</p>
+          <input type="file" id="file-input" accept=".pdf,.docx" style="display: none;">
           <button class="btn primary" onclick="document.getElementById('file-input').click()">Kies bestand</button>
           <div class="progress" id="upload-progress" style="display: none;">
             <div class="bar" id="upload-bar"></div>

@@ -222,7 +222,7 @@
     }
     if (metaElement && analysis) {
       const uploadDate = new Date(report.uploaded_at).toLocaleDateString('nl-NL');
-      metaElement.textContent = `Geüpload op ${uploadDate} door ${CURRENT_USER.full} • Score: ${analysis.score} • Engine: ${analysis.engine} ${analysis.engine_version}`;
+      metaElement.textContent = `Geüpload op ${uploadDate} door ${CURRENT_USER.full} • Score: ${analysis.score} • Engine: ${analysis.engine} v${analysis.engine_version}`;
     }
     
     // Update findings

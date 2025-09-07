@@ -263,8 +263,9 @@
       return;
     }
 
-    if (file.type !== 'application/pdf') {
-      alert('Alleen PDF bestanden zijn toegestaan');
+    if (file.type !== 'application/pdf' && 
+        file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      alert('Alleen PDF en DOCX bestanden zijn toegestaan');
       return;
     }
 
@@ -348,7 +349,7 @@
         <td>${formatDate(report.uploaded_at)}</td>
         <td>
           <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
-          ${report.status === 'DELETED' ? 
+          ${report.status === 'DELETED_SOFT' ? 
             '<button class="icon-btn" title="Herstel" onclick="confirmRestore()">♻️</button>' : 
             '<button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>'
           }
@@ -362,7 +363,7 @@
       case 'DONE': return 'ok';
       case 'PROCESSING': return 'warn';
       case 'FAILED': return 'bad';
-      case 'DELETED': return 'deleted';
+      case 'DELETED_SOFT': return 'deleted';
       default: return 'warn';
     }
   }
@@ -456,7 +457,7 @@
           </div>
         </div>
         <div style="margin-bottom:12px">
-          <strong>Engine:</strong> ${analysis.engine || 'N/A'} (${analysis.engine_version || 'N/A'})
+          <strong>Engine:</strong> ${analysis.engine || 'N/A'} v${analysis.engine_version || 'N/A'}
         </div>
         <div style="margin-bottom:12px">
           <strong>Samenvatting:</strong><br>
@@ -1061,7 +1062,7 @@ Tenant Details:
         </div>
         <div class="uploader" id="uploader">
           <p><strong>Sleep je bestand hierheen</strong> of klik om te kiezen</p>
-          <input type="file" id="file-input" accept=".pdf" style="display: none;">
+          <input type="file" id="file-input" accept=".pdf,.docx" style="display: none;">
           <button class="btn primary" onclick="document.getElementById('file-input').click()">Kies bestand</button>
           <div class="progress" id="upload-progress" style="display: none;">
             <div class="bar" id="upload-bar"></div>
