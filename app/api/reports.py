@@ -200,11 +200,12 @@ async def list_reports(
     tenant_id: Optional[str] = Query(None, description="Filter by tenant ID (SYSTEM_OWNER only)"),
     q: Optional[str] = Query(None, description="Search in filename"),
     sort: str = Query("uploaded_at_desc", description="Sort order"),
-    current_user: User = Depends(fastapi_users.current_user(active=True))
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
+    session: AsyncSession = Depends(get_db)
 ):
     """List reports with filtering, sorting and pagination."""
     
-    # STEP 1: Add authentication dependency back
+    # STEP 2: Add database session dependency back
     # Test if this breaks the endpoint
     return ReportListResponse(
         items=[],
