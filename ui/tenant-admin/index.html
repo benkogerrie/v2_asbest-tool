@@ -214,13 +214,13 @@
     
     table.innerHTML = reports.map(report => `
       <tr>
-        <td><a onclick="show('Rapportdetail')">${report.filename || 'Onbekend'}</a></td>
+        <td><a onclick="showReportDetail('${report.id}')">${report.filename || 'Onbekend'}</a></td>
         <td><span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></td>
         <td>${report.finding_count || '-'}</td>
         <td>${report.score || '-'}</td>
         <td>${formatDate(report.uploaded_at)}</td>
         <td>
-          <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
+          <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
           <button class="icon-btn" title="Download rapport">⬇️</button>
           <button class="icon-btn" title="Download conclusie & aanbevelingen (PDF)">📝</button>
           <button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>
@@ -242,6 +242,123 @@
     if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString('nl-NL');
+  }
+  
+  // Report Detail Functions
+  let currentReportId = null;
+  
+  async function showReportDetail(reportId) {
+    currentReportId = reportId;
+    
+    // For now, show basic info from the reports list
+    // TODO: Implement full report detail API when fixed
+    const reports = await getReportsData();
+    const report = reports.find(r => r.id === reportId);
+    
+    if (report) {
+      updateReportDetailView(report);
+      show('Rapportdetail');
+    } else {
+      alert('Rapport niet gevonden');
+    }
+  }
+  
+  function updateReportDetailView(report) {
+    const title = document.querySelector('[data-view="Rapportdetail"] h3');
+    if (title) {
+      title.textContent = report.filename || 'Onbekend rapport';
+    }
+    
+    // Update summary section
+    const summaryCard = document.querySelector('[data-view="Rapportdetail"] .card[style*="background:#0d1224"]');
+    if (summaryCard) {
+      summaryCard.innerHTML = `
+        <h3>Rapport Informatie</h3>
+        <p><strong>Status:</strong> <span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></p>
+        <p><strong>Score:</strong> ${report.score || 'N/A'}</p>
+        <p><strong>Findings:</strong> ${report.finding_count || 0}</p>
+        <p><strong>Geüpload:</strong> ${formatDate(report.uploaded_at)}</p>
+        <p class="muted">Geüpload door ${report.uploaded_by_name || 'Onbekende gebruiker'}</p>
+      `;
+    }
+  }
+  
+  async function getReportsData() {
+    try {
+      const response = await apiCall('/reports');
+      if (response && response.ok) {
+        return response.data.items || [];
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error);
+    }
+    return [];
+  }
+  
+  async function downloadSource() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/source`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `source_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
+  }
+  
+  async function downloadConclusion() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/conclusion`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conclusion_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
   }
 
   function confirmDelete(){
@@ -402,18 +519,22 @@
     <section data-view="Rapportdetail" style="display:none">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h3>Rapport RPT-2025-0041 — project-123_Kade-12-Amsterdam.pdf</h3>
+          <h3>Rapport Details</h3>
           <button class="btn" onclick="show('Rapporten')">← Terug naar rapporten</button>
         </div>
 
         <div style="margin:8px 0 14px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn primary">Download conclusie & aanbevelingen (PDF)</button>
+          <button class="btn primary" onclick="downloadSource()">Download bronbestand</button>
+          <button class="btn" onclick="downloadConclusion()">Download conclusie & aanbevelingen (PDF)</button>
         </div>
 
         <div class="card" style="background:#0d1224">
-          <h3>Samenvatting</h3>
-          <p>Rapport is grotendeels compleet; aanvulling nodig voor postcode en maatregelen 2A. Verwachte doorlooptijd aanvulling: 1 werkdag.</p>
-          <p class="muted">Geüpload op 26-08-2025 door S. Jansen</p>
+          <h3>Rapport Informatie</h3>
+          <p>Laden...</p>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Findings & Analyse</h3>
+          <p class="muted">Analyse resultaten worden geladen...</p>
         </div>
 
         <div class="card" style="margin-top:12px">

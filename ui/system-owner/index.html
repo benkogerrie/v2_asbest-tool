@@ -321,14 +321,14 @@
     
     table.innerHTML = reports.map(report => `
       <tr>
-        <td><a onclick="show('Rapportdetail')">${report.filename || 'Onbekend'}</a></td>
+        <td><a onclick="showReportDetail('${report.id}')">${report.filename || 'Onbekend'}</a></td>
         <td>${report.tenant_name || '-'}</td>
         <td><span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></td>
         <td>${report.finding_count || '-'}</td>
         <td>${report.score || '-'}</td>
         <td>${formatDate(report.uploaded_at)}</td>
         <td>
-          <button class="icon-btn" title="Bekijk" onclick="show('Rapportdetail')">👁</button>
+          <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
           ${report.status === 'DELETED' ? 
             '<button class="icon-btn" title="Herstel" onclick="confirmRestore()">♻️</button>' : 
             '<button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>'
@@ -354,6 +354,124 @@
     return date.toLocaleDateString('nl-NL');
   }
   
+  // Report Detail Functions
+  let currentReportId = null;
+  
+  async function showReportDetail(reportId) {
+    currentReportId = reportId;
+    
+    // For now, show basic info from the reports list
+    // TODO: Implement full report detail API when fixed
+    const reports = await getReportsData();
+    const report = reports.find(r => r.id === reportId);
+    
+    if (report) {
+      updateReportDetailView(report);
+      show('Rapportdetail');
+    } else {
+      alert('Rapport niet gevonden');
+    }
+  }
+  
+  function updateReportDetailView(report) {
+    const title = document.querySelector('[data-view="Rapportdetail"] h3');
+    if (title) {
+      title.textContent = report.filename || 'Onbekend rapport';
+    }
+    
+    // Update summary section
+    const summaryCard = document.querySelector('[data-view="Rapportdetail"] .card[style*="background:#0d1224"]');
+    if (summaryCard) {
+      summaryCard.innerHTML = `
+        <h3>Rapport Informatie</h3>
+        <p><strong>Status:</strong> <span class="chip ${getStatusClass(report.status)}">${report.status || 'Onbekend'}</span></p>
+        <p><strong>Score:</strong> ${report.score || 'N/A'}</p>
+        <p><strong>Findings:</strong> ${report.finding_count || 0}</p>
+        <p><strong>Geüpload:</strong> ${formatDate(report.uploaded_at)}</p>
+        <p><strong>Tenant:</strong> ${report.tenant_name || 'Onbekend'}</p>
+        <p class="muted">Geüpload door ${report.uploaded_by_name || 'Onbekende gebruiker'}</p>
+      `;
+    }
+  }
+  
+  async function getReportsData() {
+    try {
+      const response = await apiCall('/reports');
+      if (response && response.ok) {
+        return response.data.items || [];
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error);
+    }
+    return [];
+  }
+  
+  async function downloadSource() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/source`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `source_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
+  }
+  
+  async function downloadConclusion() {
+    if (!currentReportId) {
+      alert('Geen rapport geselecteerd');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('asbest_jwt');
+      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/conclusion`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conclusion_${currentReportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Download mislukt');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Download mislukt');
+    }
+  }
+
   // Tenant Management Functions
   function resetTenantForm() {
     document.getElementById('tenant-form').reset();
@@ -521,15 +639,19 @@
     <!-- RAPPORTDETAIL -->
     <section data-view="Rapportdetail" style="display:none">
       <div class="card">
-        <h3>Rapport project-123.pdf</h3>
+        <h3>Rapport Details</h3>
         <button class="btn" onclick="show('Rapporten')">← Terug</button>
         <div style="margin-top:12px">
-          <button class="btn primary">Download conclusie (PDF)</button>
+          <button class="btn primary" onclick="downloadSource()">Download bronbestand</button>
+          <button class="btn" onclick="downloadConclusion()" style="margin-left:8px">Download conclusie (PDF)</button>
         </div>
         <div class="card" style="margin-top:12px;background:#0d1224">
-          <h3>Samenvatting</h3>
-          <p>Rapport compleet; kleine aanvulling nodig.</p>
-          <p class="muted">Geüpload door Tenant Admin</p>
+          <h3>Rapport Informatie</h3>
+          <p>Laden...</p>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Findings & Analyse</h3>
+          <p class="muted">Analyse resultaten worden geladen...</p>
         </div>
       </div>
     </section>
