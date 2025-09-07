@@ -4,8 +4,10 @@ Object storage service for S3/MinIO compatibility.
 import boto3
 from botocore.exceptions import ClientError
 from botocore.config import Config
-from typing import BinaryIO, Optional
+from typing import BinaryIO, Optional, Tuple
 import logging
+import hashlib
+import io
 
 from app.config import settings
 from app.exceptions import StorageError
@@ -97,6 +99,51 @@ class ObjectStorage:
         except Exception as e:
             logger.error(f"Unexpected error uploading {object_key}: {e}")
             return False
+    
+    def upload_fileobj_with_checksum(
+        self,
+        fileobj: BinaryIO,
+        object_key: str,
+        content_type: str
+    ) -> Tuple[bool, Optional[str], Optional[int]]:
+        """
+        Upload a file object to storage and return checksum and file size.
+        
+        Returns:
+            Tuple[bool, Optional[str], Optional[int]]: (success, checksum, file_size)
+        """
+        try:
+            # Read file content to calculate checksum and size
+            fileobj.seek(0)
+            content = fileobj.read()
+            file_size = len(content)
+            
+            # Calculate SHA256 checksum
+            checksum = hashlib.sha256(content).hexdigest()
+            
+            # Reset fileobj position and upload
+            fileobj.seek(0)
+            fileobj_io = io.BytesIO(content)
+            
+            self.client.upload_fileobj(
+                fileobj_io,
+                self.bucket,
+                object_key,
+                ExtraArgs={
+                    'ContentType': content_type,
+                    'ACL': 'private'
+                }
+            )
+            
+            logger.info(f"Successfully uploaded {object_key} to {self.bucket} (size: {file_size}, checksum: {checksum[:16]}...)")
+            return True, checksum, file_size
+            
+        except ClientError as e:
+            logger.error(f"Failed to upload {object_key}: {e}")
+            return False, None, None
+        except Exception as e:
+            logger.error(f"Unexpected error uploading {object_key}: {e}")
+            return False, None, None
     
     def download_fileobj(self, object_key: str) -> Optional[BinaryIO]:
         """Download a file object from storage."""

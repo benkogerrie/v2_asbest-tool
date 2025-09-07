@@ -53,6 +53,18 @@ class Settings(BaseSettings):
     # Upload limits
     max_upload_mb: int = Field(default=50, env="MAX_UPLOAD_MB")
     
+    # Slice 6: Download and storage settings
+    download_ttl: int = Field(default=3600, env="DOWNLOAD_TTL")  # 1 hour default
+    purge_delay_days: int = Field(default=7, env="PURGE_DELAY_DAYS")  # 7 days before hard delete
+    
+    # Email notifications (Slice 6)
+    smtp_host: str = Field(default="", env="SMTP_HOST")
+    smtp_port: int = Field(default=587, env="SMTP_PORT")
+    smtp_username: str = Field(default="", env="SMTP_USERNAME")
+    smtp_password: str = Field(default="", env="SMTP_PASSWORD")
+    smtp_use_tls: bool = Field(default=True, env="SMTP_USE_TLS")
+    from_email: str = Field(default="noreply@asbest-tool.com", env="FROM_EMAIL")
+    
     # Redis Configuration
     redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
     worker_concurrency: int = 1

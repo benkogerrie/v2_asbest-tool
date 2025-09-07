@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SQLEnum, Float, Text
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SQLEnum, Float, Text, BigInteger
 from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
 
@@ -27,6 +27,9 @@ class AuditAction(str, Enum):
     PROCESS_FAIL = "PROCESS_FAIL"
     SOFT_DELETE = "SOFT_DELETE"
     RESTORE = "RESTORE"
+    REPORT_DOWNLOAD = "REPORT_DOWNLOAD"
+    NOTIFICATION_SENT = "NOTIFICATION_SENT"
+    REPORT_PURGE = "REPORT_PURGE"
 
 
 class Report(Base):
@@ -47,6 +50,13 @@ class Report(Base):
     uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     source_object_key = Column(String, nullable=False)
     conclusion_object_key = Column(String, nullable=True)
+    
+    # Slice 6: New fields for storage management and downloads
+    storage_key = Column(String, nullable=True)  # Key for the final PDF in storage
+    checksum = Column(String, nullable=True)  # File checksum for integrity
+    file_size = Column(BigInteger, nullable=True)  # File size in bytes
+    error_message = Column(Text, nullable=True)  # Error details if processing failed
+    deleted_at = Column(DateTime, nullable=True)  # Soft delete timestamp
     
     # Relationships
     tenant = relationship("Tenant", back_populates="reports")

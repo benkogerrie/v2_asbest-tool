@@ -4,9 +4,10 @@ Reports API endpoints for file uploads.
 import uuid
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.report import Report, ReportAuditLog, ReportStatus, AuditAction
+from app.models.analysis import Analysis
+from app.models.finding import Finding
 from app.schemas.report import ReportOut, ReportListResponse, ReportDetail
 from app.auth.auth import fastapi_users
 from app.auth.dependencies import get_current_admin_or_system_owner
@@ -23,6 +26,9 @@ from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageE
 from app.config import settings
 from app.queue.conn import reports_queue, redis_conn
 from rq import Retry
+from pydantic import BaseModel
+from typing import Dict
+from sqlalchemy import or_
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -459,4 +465,369 @@ async def reprocess_report(
         raise HTTPException(
             status_code=503,
             detail="Queue service unavailable - reprocessing cannot be scheduled"
+        )
+
+
+# --- Pydantic response schemas for findings ---
+class FindingOut(BaseModel):
+    id: str
+    code: str
+    severity: str  # "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+    message: str
+    page: Optional[int] = None
+    evidence: Optional[str] = None
+
+class FindingsAgg(BaseModel):
+    total: int
+    by_severity: Dict[str, int]
+
+class FindingsResponse(BaseModel):
+    report_id: str
+    score: Optional[float] = None
+    findings: List[FindingOut]
+    agg: FindingsAgg
+
+@router.get("/{report_id}/findings", response_model=FindingsResponse)
+async def get_report_findings(
+    report_id: str,
+    severity: Optional[List[str]] = Query(default=None, description="Filter by severity (repeatable)"),
+    q: Optional[str] = Query(default=None, description="Search in message/evidence"),
+    page: Optional[int] = Query(default=None, ge=0),
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Get findings for a report with filtering."""
+    # 1) Tenant-scoped report
+    try:
+        rid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    res_report = await session.execute(
+        select(Report).where(
+            Report.id == rid,
+            Report.tenant_id == current_user.tenant_id,
+            Report.deleted_at.is_(None)
+        )
+    )
+    report = res_report.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # 2) Laatste analysis
+    res_analysis = await session.execute(
+        select(Analysis).where(Analysis.report_id == rid).order_by(Analysis.finished_at.desc())
+    )
+    analysis = res_analysis.scalar_one_or_none()
+    if not analysis:
+        return FindingsResponse(
+            report_id=report_id,
+            score=float(report.score) if report.score is not None else None,
+            findings=[],
+            agg=FindingsAgg(total=0, by_severity={"LOW":0,"MEDIUM":0,"HIGH":0,"CRITICAL":0})
+        )
+
+    # 3) Findings query (filters)
+    qry = select(Finding).where(Finding.analysis_id == analysis.id)
+    if severity:
+        qry = qry.where(Finding.severity.in_(severity))
+    if page is not None:
+        # Note: We don't have page field yet, so this filter is ignored
+        pass
+    if q:
+        like = f"%{q}%"
+        qry = qry.where(or_(Finding.message.ilike(like), Finding.evidence.ilike(like)))
+
+    res_findings = await session.execute(qry.order_by(Finding.id.asc()))
+    findings_rows = res_findings.scalars().all()
+
+    # 4) Map → schema
+    findings_out = [
+        FindingOut(
+            id=str(f.id),
+            code=f.rule_id,            # bij jullie: rule_id representeert de code
+            severity=f.severity,
+            message=f.message,
+            page=None,  # We don't have page field yet
+            evidence=(str(f.evidence) if f.evidence else None),
+        )
+        for f in findings_rows
+    ]
+
+    # 5) Aggregatie
+    agg = {"LOW":0,"MEDIUM":0,"HIGH":0,"CRITICAL":0}
+    for f in findings_rows:
+        if f.severity in agg:
+            agg[f.severity] += 1
+
+    return FindingsResponse(
+        report_id=report_id,
+        score=float(report.score) if report.score is not None else None,
+        findings=findings_out,
+        agg=FindingsAgg(total=len(findings_rows), by_severity=agg),
+    )
+
+
+@router.get("/{report_id}/download")
+async def get_download_url(
+    report_id: str,
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Generate a presigned URL for downloading a report.
+    
+    This endpoint generates a temporary, secure download URL that expires after
+    the configured TTL period. The URL provides direct access to the report
+    file in storage without requiring authentication.
+    """
+    from app.services.reports import ReportService
+    
+    # Validate report_id format
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
+    
+    # Get report with tenant scoping
+    service = ReportService(session)
+    report = await service.get_report_for_download(report_id, current_user)
+    
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
+    
+    # Check if report is ready for download
+    if report.status != ReportStatus.DONE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Report is not ready for download. Current status: {report.status}"
+        )
+    
+    # Check if report is soft deleted
+    if report.deleted_at:
+        raise HTTPException(
+            status_code=404,
+            detail="Report has been deleted"
+        )
+    
+    # Use storage_key if available, otherwise fall back to conclusion_object_key
+    storage_key = report.storage_key or report.conclusion_object_key
+    if not storage_key:
+        raise HTTPException(
+            status_code=404,
+            detail="Report file not found in storage"
+        )
+    
+    try:
+        # Generate presigned URL
+        download_url = storage.presigned_get_url(
+            object_key=storage_key,
+            expires=settings.download_ttl
+        )
+        
+        if not download_url:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate download URL"
+            )
+        
+        # Create audit log for download
+        audit_log = ReportAuditLog(
+            report_id=report.id,
+            actor_user_id=current_user.id,
+            action=AuditAction.REPORT_DOWNLOAD,
+            note=f"Download URL generated (TTL: {settings.download_ttl}s)"
+        )
+        session.add(audit_log)
+        await session.commit()
+        
+        logger.info(f"Download URL generated for report {report_id} by user {current_user.id}")
+        
+        return {
+            "url": download_url,
+            "expires_in": settings.download_ttl,
+            "filename": report.filename,
+            "file_size": report.file_size,
+            "checksum": report.checksum
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating download URL for report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate download URL"
+        )
+
+
+@router.get("/stream")
+async def stream_reports(
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Server-Sent Events endpoint for real-time report updates.
+    
+    This endpoint provides a stream of report status updates for the current user's tenant.
+    The client can listen to this stream to receive real-time notifications when reports
+    change status (PROCESSING -> DONE/FAILED).
+    """
+    from app.services.reports import ReportService
+    import asyncio
+    import json
+    
+    async def event_generator():
+        """Generate SSE events for report updates."""
+        service = ReportService(session)
+        
+        # Send initial connection event
+        yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE connection established'})}\n\n"
+        
+        # Get initial reports state
+        reports = await service.get_reports_for_user(current_user)
+        initial_data = {
+            'type': 'initial_state',
+            'reports': [
+                {
+                    'id': str(report.id),
+                    'status': report.status,
+                    'score': report.score,
+                    'finding_count': report.finding_count,
+                    'updated_at': report.uploaded_at.isoformat() if report.uploaded_at else None
+                }
+                for report in reports
+            ]
+        }
+        yield f"data: {json.dumps(initial_data)}\n\n"
+        
+        # Poll for updates every 2 seconds
+        last_check = datetime.utcnow()
+        
+        while True:
+            try:
+                # Check for new or updated reports
+                current_reports = await service.get_reports_for_user(current_user)
+                
+                # Find reports that have been updated since last check
+                for report in current_reports:
+                    if report.uploaded_at and report.uploaded_at > last_check:
+                        update_data = {
+                            'type': 'report_update',
+                            'report': {
+                                'id': str(report.id),
+                                'status': report.status,
+                                'score': report.score,
+                                'finding_count': report.finding_count,
+                                'updated_at': report.uploaded_at.isoformat(),
+                                'filename': report.filename
+                            }
+                        }
+                        yield f"data: {json.dumps(update_data)}\n\n"
+                
+                # Send heartbeat every 30 seconds
+                if (datetime.utcnow() - last_check).seconds >= 30:
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                    last_check = datetime.utcnow()
+                
+                # Wait 2 seconds before next check
+                await asyncio.sleep(2)
+                
+            except asyncio.CancelledError:
+                # Client disconnected
+                logger.info(f"SSE connection closed for user {current_user.id}")
+                break
+            except Exception as e:
+                logger.error(f"Error in SSE stream for user {current_user.id}: {e}")
+                error_data = {
+                    'type': 'error',
+                    'message': 'An error occurred while streaming updates'
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                await asyncio.sleep(5)  # Wait before retrying
+    
+    return Response(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
+
+
+@router.delete("/{report_id}")
+async def soft_delete_report(
+    report_id: str,
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a report.
+    
+    This marks the report as deleted (sets deleted_at timestamp) but keeps
+    the record in the database. The report will be hidden from normal queries
+    and eventually purged by a background job.
+    """
+    from app.services.reports import ReportService
+    
+    # Validate report_id format
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
+    
+    # Get report with tenant scoping
+    service = ReportService(session)
+    report = await service.get_report_for_download(report_id, current_user)
+    
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
+    
+    # Check if already deleted
+    if report.deleted_at:
+        raise HTTPException(
+            status_code=400,
+            detail="Report is already deleted"
+        )
+    
+    try:
+        # Soft delete the report
+        report.deleted_at = datetime.utcnow()
+        session.add(report)
+        
+        # Create audit log
+        audit_log = ReportAuditLog(
+            report_id=report.id,
+            actor_user_id=current_user.id,
+            action=AuditAction.SOFT_DELETE,
+            note=f"Report soft deleted by {current_user.email}"
+        )
+        session.add(audit_log)
+        await session.commit()
+        
+        logger.info(f"Report {report_id} soft deleted by user {current_user.id}")
+        
+        return {
+            "message": "Report deleted successfully",
+            "deleted_at": report.deleted_at.isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error soft deleting report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete report"
         )

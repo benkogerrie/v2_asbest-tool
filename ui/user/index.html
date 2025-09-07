@@ -67,6 +67,148 @@
     box-shadow:0 0 0 3px rgba(110,168,254,.15);
   }
   label{ display:block; margin:6px 0 6px; color:var(--muted); font-size:12px; }
+  
+  /* Slice 6: Toast animations */
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+  }
+  
+  /* Findings Panel Styles */
+  .findings-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 600px;
+    height: 100vh;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .findings-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .findings-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  
+  .findings-report-id {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  
+  .close-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 18px;
+    padding: 4px;
+  }
+  
+  .close-btn:hover {
+    color: var(--accent);
+  }
+  
+  .findings-controls {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  
+  .score-badge {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  
+  .findings-search {
+    margin-left: auto;
+    width: 220px;
+  }
+  
+  .severity-filters {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  
+  .severity-chip {
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .severity-chip.active {
+    background: #eef2ff;
+    color: #3730a3;
+    border-color: #3730a3;
+  }
+  
+  .findings-content {
+    flex: 1;
+    overflow: auto;
+  }
+  
+  .findings-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .findings-table th {
+    padding: 10px 12px;
+    text-align: left;
+    background: var(--panel2);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .findings-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+  }
+  
+  .severity-badge {
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  
+  .severity-low { background: #ecfdf5; color: #065f46; }
+  .severity-medium { background: #fffbeb; color: #92400e; }
+  .severity-high { background: #fef3c7; color: #92400e; }
+  .severity-critical { background: #fee2e2; color: #991b1b; }
 </style>
 <script>
   // API Configuration - PAS DIT AAN NAAR JE RAILWAY URL
@@ -498,27 +640,223 @@
     return true;
   }
 
-  // Auto-refresh for processing reports
-  let refreshInterval;
+  // Slice 6: Server-Sent Events for real-time updates
+  let eventSource = null;
+  let reportsData = [];
   
-  function startAutoRefresh() {
-    if (refreshInterval) clearInterval(refreshInterval);
+  function startSSEConnection() {
+    if (eventSource) {
+      eventSource.close();
+    }
     
-    refreshInterval = setInterval(async () => {
-      const currentView = document.querySelector('[data-view]:not([style*="display:none"])');
-      if (currentView && currentView.getAttribute('data-view') === 'Rapporten') {
-        await loadReports();
+    const token = localStorage.getItem('asbest_jwt');
+    if (!token) {
+      console.warn('No auth token available for SSE connection');
+      return;
+    }
+    
+    // Create SSE connection with authentication
+    eventSource = new EventSource(`${API_BASE_URL}/reports/stream`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
-    }, 5000); // Refresh every 5 seconds
+    });
+    
+    eventSource.onopen = function(event) {
+      console.log('✅ SSE connection established');
+      showConnectionStatus('connected');
+    };
+    
+    eventSource.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+        handleSSEMessage(data);
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+    
+    eventSource.onerror = function(event) {
+      console.error('❌ SSE connection error:', event);
+      showConnectionStatus('disconnected');
+      
+      // Attempt to reconnect after 5 seconds
+      setTimeout(() => {
+        if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+          console.log('🔄 Attempting to reconnect SSE...');
+          startSSEConnection();
+        }
+      }, 5000);
+    };
   }
   
-  function stopAutoRefresh() {
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-      refreshInterval = null;
+  function stopSSEConnection() {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+      showConnectionStatus('disconnected');
     }
   }
+  
+  function handleSSEMessage(data) {
+    switch (data.type) {
+      case 'connected':
+        console.log('SSE:', data.message);
+        break;
+        
+      case 'initial_state':
+        reportsData = data.reports || [];
+        updateReportsTableFromSSE(reportsData);
+        break;
+        
+      case 'report_update':
+        updateSingleReport(data.report);
+        showToast(`Rapport "${data.report.filename}" is ${data.report.status}`, 
+                  data.report.status === 'DONE' ? 'success' : 
+                  data.report.status === 'FAILED' ? 'error' : 'info');
+        
+        // Update findings panel if open for this report
+        onReportSseUpdate(data);
+        break;
+        
+      case 'heartbeat':
+        // Connection is alive
+        break;
+        
+      case 'error':
+        console.error('SSE Error:', data.message);
+        showToast('Verbindingsfout met server', 'error');
+        break;
+        
+      default:
+        console.log('Unknown SSE message type:', data.type);
+    }
+  }
+  
+  function updateSingleReport(updatedReport) {
+    // Find and update the report in our data
+    const index = reportsData.findIndex(r => r.id === updatedReport.id);
+    if (index !== -1) {
+      reportsData[index] = updatedReport;
+    } else {
+      reportsData.push(updatedReport);
+    }
+    
+    // Update the UI
+    updateReportsTableFromSSE(reportsData);
+  }
+  
+  function updateReportsTableFromSSE(reports) {
+    const tbody = document.querySelector('table tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    reports.forEach(report => {
+      const statusChip = `<span class="chip ${getStatusClass(report.status)}">${report.status}</span>`;
+      
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><a onclick="showReportDetail('${report.id}')">${report.filename || 'Onbekend'}</a></td>
+        <td>${statusChip}</td>
+        <td>${report.finding_count || '—'}</td>
+        <td>${formatDate(report.updated_at)}</td>
+        <td>
+          <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
+          <button class="icon-btn" title="Findings Details" onclick="openFindingsPanel('${report.id}')" ${report.status !== 'DONE' ? 'disabled' : ''}>🔍</button>
+          <button class="icon-btn" title="Download rapport" onclick="downloadReport('${report.id}')">⬇️</button>
+          <button class="icon-btn" title="Download conclusie & aanbevelingen (PDF)" onclick="downloadConclusion('${report.id}')" ${report.status !== 'DONE' ? 'disabled' : ''}>📝</button>
+        </td>
+      `;
+      
+      tbody.appendChild(row);
+    });
+  }
+  
+  function showConnectionStatus(status) {
+    // Add visual indicator for connection status
+    let indicator = document.getElementById('connection-indicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.id = 'connection-indicator';
+      indicator.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        z-index: 1000;
+        transition: all 0.3s ease;
+      `;
+      document.body.appendChild(indicator);
+    }
+    
+    if (status === 'connected') {
+      indicator.textContent = '🟢 Live';
+      indicator.style.background = '#28a745';
+      indicator.style.color = 'white';
+    } else {
+      indicator.textContent = '🔴 Offline';
+      indicator.style.background = '#dc3545';
+      indicator.style.color = 'white';
+    }
+  }
+  
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      z-index: 1001;
+      animation: slideIn 0.3s ease;
+    `;
+    
+    switch (type) {
+      case 'success':
+        toast.style.background = '#28a745';
+        break;
+      case 'error':
+        toast.style.background = '#dc3545';
+        break;
+      default:
+        toast.style.background = '#17a2b8';
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      toast.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  }
 
+  // Slice 6: Download functionality
+  async function downloadReport(reportId) {
+    try {
+      const response = await apiCall(`/reports/${reportId}/download`);
+      
+      if (response.url) {
+        // Open download URL in new tab
+        window.open(response.url, '_blank');
+        showToast(`Download gestart voor ${response.filename}`, 'success');
+      } else {
+        throw new Error('No download URL received');
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      showToast('Download mislukt: ' + (error.message || 'Onbekende fout'), 'error');
+    }
+  }
+  
   // Initialize app
   window.onload=async ()=>{
     // Check authentication first
@@ -532,14 +870,132 @@
       console.warn('API is not healthy - some features may not work');
     }
     
-    // Load initial data
-    await loadReports();
+    // Start SSE connection for real-time updates
+    startSSEConnection();
     
-    // Start auto-refresh
-    startAutoRefresh();
+    // Load initial data (fallback if SSE fails)
+    await loadReports();
     
     show('Rapporten');
   };
+  
+  // Clean up SSE connection when page unloads
+  window.onbeforeunload = function() {
+    stopSSEConnection();
+  };
+
+  // Findings Panel Functionality
+  let currentFindings = [];
+  let currentReportId = null;
+
+  async function openFindingsPanel(reportId) {
+    currentReportId = reportId;
+    document.getElementById('findings-panel').style.display = 'block';
+    document.getElementById('findings-report-id').textContent = reportId;
+
+    try {
+      const response = await apiCall(`/reports/${reportId}/findings`);
+      currentFindings = response.findings || [];
+
+      document.getElementById('findings-score').textContent = `Score: ${response.score ?? '—'}`;
+
+      const agg = response.agg?.by_severity || {LOW:0,MEDIUM:0,HIGH:0,CRITICAL:0};
+      document.getElementById('count-ALL').textContent = response.agg?.total ?? currentFindings.length;
+      document.getElementById('count-LOW').textContent = agg.LOW || 0;
+      document.getElementById('count-MEDIUM').textContent = agg.MEDIUM || 0;
+      document.getElementById('count-HIGH').textContent = agg.HIGH || 0;
+      document.getElementById('count-CRITICAL').textContent = agg.CRITICAL || 0;
+
+      // reset filters
+      document.querySelectorAll('.severity-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('.severity-chip[data-severity="ALL"]').classList.add('active');
+      document.getElementById('findings-search').value = '';
+
+      renderFindings(currentFindings);
+    } catch (err) {
+      console.error(err);
+      showToast('Kon findings niet laden', 'error');
+    }
+  }
+
+  function closeFindingsPanel() {
+    document.getElementById('findings-panel').style.display = 'none';
+    currentFindings = [];
+    currentReportId = null;
+  }
+
+  function renderFindings(findings) {
+    const tbody = document.getElementById('findings-tbody');
+    tbody.innerHTML = '';
+    findings.forEach(f => {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-testid', 'finding-row');
+      tr.innerHTML = `
+        <td><span class="severity-badge ${sevClass(f.severity)}" data-testid="severity-badge">${f.severity}</span></td>
+        <td>${escapeHtml(f.code || '')}</td>
+        <td>${escapeHtml(f.message || '')}</td>
+        <td title="${escapeHtml(f.evidence || '')}" style="max-width:220px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;">
+          ${escapeHtml(f.evidence || '—')}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function filterBySeverity(severity) {
+    document.querySelectorAll('.severity-chip').forEach(ch => ch.classList.remove('active'));
+    document.querySelector(`.severity-chip[data-severity="${severity}"]`).classList.add('active');
+
+    let filtered = currentFindings.slice();
+    if (severity !== 'ALL') filtered = filtered.filter(f => f.severity === severity);
+
+    const q = document.getElementById('findings-search').value.toLowerCase();
+    if (q) filtered = filtered.filter(f =>
+      (f.message || '').toLowerCase().includes(q) || (f.evidence || '').toLowerCase().includes(q)
+    );
+
+    renderFindings(filtered);
+  }
+
+  function filterFindings() {
+    const active = document.querySelector('.severity-chip.active')?.dataset.severity || 'ALL';
+    filterBySeverity(active);
+  }
+
+  // Hook voor SSE updates
+  async function onReportSseUpdate(update) {
+    if (!update || !update.report) return;
+    if (currentReportId && update.report.id === currentReportId && update.report.status === 'DONE') {
+      try {
+        const response = await apiCall(`/reports/${currentReportId}/findings`);
+        currentFindings = response.findings || [];
+        document.getElementById('findings-score').textContent = `Score: ${response.score ?? '—'}`;
+        renderFindings(currentFindings);
+        showToast('Findings bijgewerkt', 'info');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+
+  function sevClass(sev) {
+    switch ((sev || '').toUpperCase()) {
+      case 'LOW': return 'severity-low';
+      case 'MEDIUM': return 'severity-medium';
+      case 'HIGH': return 'severity-high';
+      case 'CRITICAL': return 'severity-critical';
+      default: return '';
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
 </script>
 </head>
 <body>
@@ -654,6 +1110,54 @@
     </section>
 
   </main>
+
+  <!-- Findings Panel Drawer -->
+  <div id="findings-panel" class="findings-drawer" style="display:none;">
+    <div class="findings-header">
+      <div>
+        <div class="findings-title">Rapport Details</div>
+        <div class="findings-report-id" id="findings-report-id"></div>
+      </div>
+      <button onclick="closeFindingsPanel()" class="close-btn" aria-label="Close">✕</button>
+    </div>
+
+    <div class="findings-controls">
+      <div data-testid="score-badge" class="score-badge" id="findings-score">Score: —</div>
+      <input type="text" id="findings-search" placeholder="Zoek in findings..." onkeyup="filterFindings()" class="findings-search">
+    </div>
+
+    <div class="severity-filters">
+      <button class="severity-chip active" data-severity="ALL" onclick="filterBySeverity('ALL')">
+        ALL (<span id="count-ALL">0</span>)
+      </button>
+      <button class="severity-chip" data-severity="LOW" onclick="filterBySeverity('LOW')" data-testid="severity-chip-LOW">
+        LOW (<span id="count-LOW">0</span>)
+      </button>
+      <button class="severity-chip" data-severity="MEDIUM" onclick="filterBySeverity('MEDIUM')" data-testid="severity-chip-MEDIUM">
+        MEDIUM (<span id="count-MEDIUM">0</span>)
+      </button>
+      <button class="severity-chip" data-severity="HIGH" onclick="filterBySeverity('HIGH')" data-testid="severity-chip-HIGH">
+        HIGH (<span id="count-HIGH">0</span>)
+      </button>
+      <button class="severity-chip" data-severity="CRITICAL" onclick="filterBySeverity('CRITICAL')" data-testid="severity-chip-CRITICAL">
+        CRITICAL (<span id="count-CRITICAL">0</span>)
+      </button>
+    </div>
+
+    <div class="findings-content">
+      <table data-testid="findings-table" class="findings-table">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Code</th>
+            <th>Message</th>
+            <th>Evidence</th>
+          </tr>
+        </thead>
+        <tbody id="findings-tbody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 </body>
 </html>
