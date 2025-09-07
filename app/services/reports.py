@@ -209,24 +209,34 @@ class ReportService:
         # Convert findings_json to FindingItem objects if available
         findings = []
         if report.findings_json:
-            for finding_data in report.findings_json:
-                findings.append(FindingItem(**finding_data))
+            try:
+                for finding_data in report.findings_json:
+                    findings.append(FindingItem(**finding_data))
+            except Exception as e:
+                # Log the error but don't fail the entire request
+                print(f"Warning: Failed to parse findings_json: {e}")
+                findings = []
         
         # Create ReportDetail with actual data or placeholders
-        report_detail = ReportDetail(
-            id=str(report.id),
-            filename=report.filename,
-            summary=report.summary or "No conclusion available yet",
-            findings=findings,
-            uploaded_at=report.uploaded_at,
-            uploaded_by_name=uploaded_by_name,
-            tenant_name=tenant_name,
-            status=report.status,
-            finding_count=report.finding_count,
-            score=report.score
-        )
-        
-        return report_detail
+        try:
+            report_detail = ReportDetail(
+                id=str(report.id),
+                filename=report.filename,
+                summary=report.summary or "No conclusion available yet",
+                findings=findings,
+                uploaded_at=report.uploaded_at,
+                uploaded_by_name=uploaded_by_name,
+                tenant_name=tenant_name,
+                status=report.status,
+                finding_count=report.finding_count,
+                score=report.score
+            )
+            
+            return report_detail
+        except Exception as e:
+            # Log the error and return None
+            print(f"Error creating ReportDetail: {e}")
+            return None
     
     async def get_report_for_download(
         self,
