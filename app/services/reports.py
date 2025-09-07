@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.models.report import Report, ReportStatus
 from app.models.user import User, UserRole
 from app.models.tenant import Tenant
-from app.schemas.report import ReportListItem, ReportDetail
+from app.schemas.report import ReportListItem, ReportDetail, FindingItem
 
 
 class ReportService:
@@ -209,7 +209,6 @@ class ReportService:
         # Convert findings_json to FindingItem objects if available
         findings = []
         if report.findings_json:
-            from app.schemas.report import FindingItem
             for finding_data in report.findings_json:
                 findings.append(FindingItem(**finding_data))
         
