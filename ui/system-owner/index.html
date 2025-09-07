@@ -230,6 +230,7 @@
         <td>
           <button class="icon-btn" title="Bekijk" onclick="viewTenant('${tenant.id}')">👁</button>
           <button class="icon-btn" title="Bewerk" onclick="editTenant('${tenant.id}')">✏️</button>
+          <button class="icon-btn" title="Verwijder" onclick="deleteTenant('${tenant.id}')">🗑️</button>
         </td>
       </tr>
     `).join('');
@@ -657,6 +658,9 @@
   // Tenant Management Functions
   function resetTenantForm() {
     document.getElementById('tenant-form').reset();
+    currentEditingTenantId = null;
+    document.querySelector('#tenant-form h3').textContent = 'Nieuwe Tenant + Admin';
+    document.querySelector('#tenant-form button[type="submit"]').textContent = 'Aanmaken';
   }
   
   async function createTenantWithAdmin(event) {
@@ -684,35 +688,144 @@
     };
     
     try {
-      const response = await apiCall('/tenants/with-admin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-      
-      if (response && response.ok) {
-        const result = await response.json();
-        alert(`✅ Tenant "${result.tenant.name}" en admin "${result.admin.first_name} ${result.admin.last_name}" succesvol aangemaakt!\n\nTijdelijk wachtwoord: ${result.temp_password}\nE-mail uitnodiging: ${result.invitation_sent ? 'Verzonden' : 'Niet verzonden'}`);
-        resetTenantForm();
-        loadTenants(); // Refresh tenants list
+      let response;
+      if (currentEditingTenantId) {
+        // Update existing tenant (without admin creation)
+        const updateData = {
+          name: formData.tenant.name,
+          kvk: formData.tenant.kvk,
+          contact_email: formData.tenant.contact_email,
+          phone: formData.tenant.phone,
+          address: formData.tenant.address,
+          website: formData.tenant.website,
+          industry: formData.tenant.industry
+        };
+        
+        response = await apiCall(`/tenants/${currentEditingTenantId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+        
+        if (response && response.ok) {
+          alert(`✅ Tenant "${formData.tenant.name}" succesvol bijgewerkt!`);
+          resetTenantForm();
+          loadTenants(); // Refresh tenants list
+        } else {
+          const error = await response.json();
+          alert(`❌ Fout bij bijwerken: ${error.detail || 'Onbekende fout'}`);
+        }
       } else {
-        const error = await response.json();
-        alert(`❌ Fout bij aanmaken: ${error.detail || 'Onbekende fout'}`);
+        // Create new tenant with admin
+        response = await apiCall('/tenants/with-admin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        if (response && response.ok) {
+          const result = await response.json();
+          alert(`✅ Tenant "${result.tenant.name}" en admin "${result.admin.first_name} ${result.admin.last_name}" succesvol aangemaakt!\n\nTijdelijk wachtwoord: ${result.temp_password}\nE-mail uitnodiging: ${result.invitation_sent ? 'Verzonden' : 'Niet verzonden'}`);
+          resetTenantForm();
+          loadTenants(); // Refresh tenants list
+        } else {
+          const error = await response.json();
+          alert(`❌ Fout bij aanmaken: ${error.detail || 'Onbekende fout'}`);
+        }
       }
     } catch (error) {
-      console.error('Failed to create tenant with admin:', error);
-      alert('❌ Fout bij aanmaken van tenant en admin');
+      console.error('Failed to create/update tenant:', error);
+      alert('❌ Fout bij aanmaken/bijwerken van tenant');
     }
   }
   
-  function viewTenant(tenantId) {
-    alert(`Bekijk tenant ${tenantId} - Functionaliteit komt later`);
+  // Tenant Management Functions
+  let currentEditingTenantId = null;
+  
+  async function viewTenant(tenantId) {
+    try {
+      const response = await apiCall(`/tenants/${tenantId}`);
+      if (response && response.ok) {
+        const tenant = await response.json();
+        
+        // Show tenant details in a modal or alert for now
+        const details = `
+Tenant Details:
+- Naam: ${tenant.name}
+- KvK: ${tenant.kvk || 'N/A'}
+- Contact Email: ${tenant.contact_email || 'N/A'}
+- Telefoon: ${tenant.phone || 'N/A'}
+- Adres: ${tenant.address || 'N/A'}
+- Postcode: ${tenant.postal_code || 'N/A'}
+- Plaats: ${tenant.city || 'N/A'}
+- Land: ${tenant.country || 'N/A'}
+- Aangemaakt: ${new Date(tenant.created_at).toLocaleDateString('nl-NL')}
+        `;
+        alert(details);
+      } else {
+        alert('Tenant niet gevonden');
+      }
+    } catch (error) {
+      console.error('Error loading tenant:', error);
+      alert('Error bij het laden van tenant');
+    }
   }
   
-  function editTenant(tenantId) {
-    alert(`Bewerk tenant ${tenantId} - Functionaliteit komt later`);
+  async function editTenant(tenantId) {
+    try {
+      const response = await apiCall(`/tenants/${tenantId}`);
+      if (response && response.ok) {
+        const tenant = await response.json();
+        currentEditingTenantId = tenantId;
+        
+        // Populate tenant form with existing data
+        document.getElementById('tenant-name').value = tenant.name || '';
+        document.getElementById('tenant-kvk').value = tenant.kvk || '';
+        document.getElementById('tenant-email').value = tenant.contact_email || '';
+        document.getElementById('tenant-phone').value = tenant.phone || '';
+        document.getElementById('tenant-address').value = tenant.address || '';
+        document.getElementById('tenant-website').value = tenant.website || '';
+        document.getElementById('tenant-industry').value = tenant.industry || '';
+        
+        // Change form title and submit button
+        document.querySelector('#tenant-form h3').textContent = 'Tenant Bewerken';
+        document.querySelector('#tenant-form button[type="submit"]').textContent = 'Bijwerken';
+        
+        // Show the form
+        document.getElementById('tenant-form').scrollIntoView({ behavior: 'smooth' });
+      } else {
+        alert('Tenant niet gevonden');
+      }
+    } catch (error) {
+      console.error('Error loading tenant:', error);
+      alert('Error bij het laden van tenant');
+    }
+  }
+  
+  async function deleteTenant(tenantId) {
+    if (!confirm('Weet je zeker dat je deze tenant wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {
+      return;
+    }
+    
+    try {
+      const response = await apiCall(`/tenants/${tenantId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response && response.ok) {
+        alert('Tenant succesvol verwijderd');
+        loadTenants(); // Refresh tenants list
+      } else {
+        alert('Error bij het verwijderen van tenant');
+      }
+    } catch (error) {
+      console.error('Error deleting tenant:', error);
+      alert('Error bij het verwijderen van tenant');
+    }
   }
 
   window.onload=()=>{
