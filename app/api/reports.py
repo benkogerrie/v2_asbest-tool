@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -205,14 +206,54 @@ async def list_reports(
 ):
     """List reports with filtering, sorting and pagination."""
     
-    # STEP 2: Add database session dependency back
-    # Test if this breaks the endpoint
-    return ReportListResponse(
-        items=[],
-        page=page,
-        page_size=page_size,
-        total=0
-    )
+    # STEP 3: Add ReportService back but with SIMPLE query first
+    from app.services.reports import ReportService
+    
+    service = ReportService(session)
+    
+    # Try a simple query first - just get all reports without filters
+    try:
+        # Simple query: get all reports for current user
+        if current_user.role == UserRole.SYSTEM_OWNER:
+            # System owner sees all reports
+            result = await session.execute(select(Report))
+            reports = result.scalars().all()
+        else:
+            # Tenant admin/user sees only their tenant's reports
+            result = await session.execute(
+                select(Report).where(Report.tenant_id == current_user.tenant_id)
+            )
+            reports = result.scalars().all()
+        
+        # Convert to simple response format
+        report_items = []
+        for report in reports:
+            report_items.append({
+                "id": str(report.id),
+                "filename": report.filename,
+                "status": report.status.value,
+                "finding_count": 0,  # Simplified for now
+                "score": None,  # Simplified for now
+                "uploaded_at": report.uploaded_at.isoformat(),
+                "tenant_name": None  # Simplified for now
+            })
+        
+        return ReportListResponse(
+            items=report_items,
+            page=page,
+            page_size=page_size,
+            total=len(report_items)
+        )
+        
+    except Exception as e:
+        # If simple query fails, return empty list
+        print(f"Simple query failed: {e}")
+        return ReportListResponse(
+            items=[],
+            page=page,
+            page_size=page_size,
+            total=0
+        )
 
 @router.get("/test-simple")
 async def test_simple():
