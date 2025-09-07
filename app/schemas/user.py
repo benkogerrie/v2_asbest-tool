@@ -41,6 +41,7 @@ class UserRead(UserBase):
     is_superuser: bool
     is_verified: bool
     created_at: datetime
+    tenant_name: Optional[str] = None  # Added for UI compatibility
     
     class Config:
         from_attributes = True

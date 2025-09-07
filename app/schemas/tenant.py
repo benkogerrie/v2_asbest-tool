@@ -41,6 +41,7 @@ class TenantUpdate(BaseModel):
 class TenantRead(TenantBase):
     id: UUID
     created_at: datetime
+    user_count: Optional[int] = 0  # Added for UI compatibility
     
     class Config:
         from_attributes = True

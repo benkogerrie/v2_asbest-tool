@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models.tenant import Tenant
@@ -18,9 +18,31 @@ async def list_tenants(
     session: AsyncSession = Depends(get_db)
 ):
     """List all tenants (system owner only)."""
-    result = await session.execute(select(Tenant))
-    tenants = result.scalars().all()
-    return tenants
+    result = await session.execute(
+        select(Tenant, func.count(User.id).label('user_count'))
+        .outerjoin(User, Tenant.id == User.tenant_id)
+        .group_by(Tenant.id)
+    )
+    tenants_with_counts = []
+    for tenant, user_count in result:
+        tenant_dict = {
+            "id": tenant.id,
+            "name": tenant.name,
+            "kvk": tenant.kvk,
+            "contact_email": tenant.contact_email,
+            "address": tenant.address,
+            "phone": tenant.phone,
+            "website": tenant.website,
+            "description": tenant.description,
+            "industry": tenant.industry,
+            "employee_count": tenant.employee_count,
+            "founded_year": tenant.founded_year,
+            "is_active": tenant.is_active,
+            "created_at": tenant.created_at,
+            "user_count": user_count
+        }
+        tenants_with_counts.append(tenant_dict)
+    return tenants_with_counts
 
 
 @router.get("/my", response_model=TenantRead)

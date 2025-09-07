@@ -22,17 +22,60 @@ async def list_users(
 ):
     """List users based on role and tenant."""
     if current_user.role == UserRole.SYSTEM_OWNER:
-        # System owner sees all users
-        result = await session.execute(select(User))
-        users = result.scalars().all()
+        # System owner sees all users with tenant information
+        result = await session.execute(
+            select(User, Tenant.name.label('tenant_name'))
+            .outerjoin(Tenant, User.tenant_id == Tenant.id)
+        )
+        users_with_tenant = []
+        for user, tenant_name in result:
+            user_dict = {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "tenant_id": user.tenant_id,
+                "tenant_name": tenant_name,
+                "is_active": user.is_active,
+                "is_superuser": user.is_superuser,
+                "is_verified": user.is_verified,
+                "created_at": user.created_at,
+                "phone": user.phone,
+                "department": user.department,
+                "job_title": user.job_title,
+                "employee_id": user.employee_id
+            }
+            users_with_tenant.append(user_dict)
+        return users_with_tenant
     else:
         # Tenant admin sees only users from their tenant
         result = await session.execute(
-            select(User).where(User.tenant_id == current_user.tenant_id)
+            select(User, Tenant.name.label('tenant_name'))
+            .join(Tenant, User.tenant_id == Tenant.id)
+            .where(User.tenant_id == current_user.tenant_id)
         )
-        users = result.scalars().all()
-    
-    return users
+        users_with_tenant = []
+        for user, tenant_name in result:
+            user_dict = {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "tenant_id": user.tenant_id,
+                "tenant_name": tenant_name,
+                "is_active": user.is_active,
+                "is_superuser": user.is_superuser,
+                "is_verified": user.is_verified,
+                "created_at": user.created_at,
+                "phone": user.phone,
+                "department": user.department,
+                "job_title": user.job_title,
+                "employee_id": user.employee_id
+            }
+            users_with_tenant.append(user_dict)
+        return users_with_tenant
 
 
 @router.get("/me", response_model=UserRead)
@@ -84,15 +127,19 @@ async def get_user(
 ):
     """Get a specific user."""
     result = await session.execute(
-        select(User).where(User.id == user_id)
+        select(User, Tenant.name.label('tenant_name'))
+        .outerjoin(Tenant, User.tenant_id == Tenant.id)
+        .where(User.id == user_id)
     )
-    user = result.scalar_one_or_none()
+    user_data = result.first()
     
-    if not user:
+    if not user_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+    
+    user, tenant_name = user_data
     
     # Check access rights
     if current_user.role == UserRole.SYSTEM_OWNER:
@@ -106,7 +153,25 @@ async def get_user(
                 detail="Access denied"
             )
     
-    return user
+    # Return user with tenant_name
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "role": user.role,
+        "tenant_id": user.tenant_id,
+        "tenant_name": tenant_name,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+        "is_verified": user.is_verified,
+        "created_at": user.created_at,
+        "phone": user.phone,
+        "department": user.department,
+        "job_title": user.job_title,
+        "employee_id": user.employee_id
+    }
+    return user_dict
 
 
 @router.put("/{user_id}", response_model=UserRead)
