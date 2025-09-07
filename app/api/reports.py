@@ -206,54 +206,63 @@ async def list_reports(
 ):
     """List reports with filtering, sorting and pagination."""
     
-    # STEP 3: Add ReportService back but with SIMPLE query first
+    # STEP 4: Add ReportService back with original logic
     from app.services.reports import ReportService
     
-    service = ReportService(session)
+    # Validate sort parameter
+    valid_sorts = ["uploaded_at_desc", "uploaded_at_asc", "filename_asc", "filename_desc"]
+    if sort not in valid_sorts:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid sort parameter. Valid options: {', '.join(valid_sorts)}"
+        )
     
-    # Try a simple query first - just get all reports without filters
-    try:
-        # Simple query: get all reports for current user
-        if current_user.role == UserRole.SYSTEM_OWNER:
-            # System owner sees all reports
-            result = await session.execute(select(Report))
-            reports = result.scalars().all()
-        else:
-            # Tenant admin/user sees only their tenant's reports
-            result = await session.execute(
-                select(Report).where(Report.tenant_id == current_user.tenant_id)
+    # Validate tenant_id parameter (only allowed for SYSTEM_OWNER)
+    if tenant_id and current_user.role != UserRole.SYSTEM_OWNER:
+        raise HTTPException(
+            status_code=403,
+            detail="tenant_id filter is only allowed for SYSTEM_OWNER"
+        )
+    
+    # Validate tenant_id format if provided
+    if tenant_id:
+        try:
+            uuid.UUID(tenant_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid tenant_id format"
             )
-            reports = result.scalars().all()
-        
-        # Convert to simple response format
-        report_items = []
-        for report in reports:
-            report_items.append({
-                "id": str(report.id),
-                "filename": report.filename,
-                "status": report.status.value,
-                "finding_count": 0,  # Simplified for now
-                "score": None,  # Simplified for now
-                "uploaded_at": report.uploaded_at.isoformat(),
-                "tenant_name": None  # Simplified for now
-            })
-        
-        return ReportListResponse(
-            items=report_items,
+    
+    service = ReportService(session)
+    try:
+        reports, total = await service.get_reports_with_filters(
+            current_user=current_user,
             page=page,
             page_size=page_size,
-            total=len(report_items)
+            status=status,
+            tenant_id=tenant_id,
+            q=q,
+            sort=sort
         )
-        
-    except Exception as e:
-        # If simple query fails, return empty list
-        print(f"Simple query failed: {e}")
-        return ReportListResponse(
-            items=[],
-            page=page,
-            page_size=page_size,
-            total=0
-        )
+    except ValueError as e:
+        if "Tenant not found" in str(e):
+            raise HTTPException(
+                status_code=404,
+                detail="Tenant not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail=str(e)
+            )
+    
+    return ReportListResponse(
+        items=reports,
+        page=page,
+        page_size=page_size,
+        total=total
+    )
 
 @router.get("/test-simple")
 async def test_simple():
