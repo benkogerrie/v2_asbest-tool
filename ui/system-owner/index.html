@@ -1113,6 +1113,85 @@ Tenant Details:
   let currentPrompts = [];
   let currentEditingPromptId = null;
 
+  // Help function
+  function showHelp() {
+    const helpContent = `
+      <h3>System Owner Help</h3>
+      <div style="line-height: 1.6;">
+        <h4>📊 Rapporten</h4>
+        <p>Upload en beheer asbest rapporten voor alle tenants.</p>
+        
+        <h4>🤖 AI Prompts</h4>
+        <p>Beheer AI prompts voor automatische analyse van rapporten.</p>
+        <ul>
+          <li><strong>Nieuwe Prompt:</strong> Maak een nieuwe AI prompt aan</li>
+          <li><strong>Bekijk:</strong> Bekijk prompt details en content</li>
+          <li><strong>Bewerken:</strong> Wijzig bestaande prompts</li>
+          <li><strong>Test:</strong> Test prompt met sample data</li>
+          <li><strong>Activeer/Archiveer:</strong> Beheer prompt status</li>
+        </ul>
+        
+        <h4>👥 Admin</h4>
+        <p>Beheer tenants en gebruikers in het systeem.</p>
+        
+        <h4>🔧 Tips</h4>
+        <ul>
+          <li>Gebruik de test-functie voordat je een prompt activeert</li>
+          <li>Archiveer oude prompts in plaats van ze te verwijderen</li>
+          <li>Controleer de status van rapporten regelmatig</li>
+        </ul>
+      </div>
+    `;
+    
+    // Create help modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h3>Help</h3>
+          <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+        </div>
+        <div class="modal-body">
+          ${helpContent}
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+  }
+
+  // Logout function
+  async function logout() {
+    try {
+      // Clear any stored tokens
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      sessionStorage.clear();
+      
+      // Show logout message
+      showToast('Uitgelogd', 'success');
+      
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        window.location.href = '/auth/';
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, still redirect to login
+      window.location.href = '/auth/';
+    }
+  }
+
   // Toast notification function
   function showToast(message, type = 'info') {
     // Create toast element
@@ -1427,8 +1506,8 @@ Tenant Details:
     <div class="topbar">
       <div class="crumbs" id="crumb"></div>
       <div>
-        <button class="btn ghost">Help</button>
-        <button class="btn">Uitloggen</button>
+        <button class="btn ghost" onclick="showHelp()">Help</button>
+        <button class="btn" onclick="logout()">Uitloggen</button>
       </div>
     </div>
 
