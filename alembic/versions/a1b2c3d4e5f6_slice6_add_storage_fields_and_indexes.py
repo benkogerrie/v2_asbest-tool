@@ -30,7 +30,7 @@ def upgrade():
     op.execute("ALTER TYPE auditaction ADD VALUE 'REPORT_PURGE'")
     
     # Create indexes for better performance
-    op.create_index('idx_reports_tenant_created', 'reports', ['tenant_id', 'created_at'], unique=False)
+    op.create_index('idx_reports_tenant_uploaded', 'reports', ['tenant_id', 'uploaded_at'], unique=False)
     op.create_index('idx_reports_status', 'reports', ['status'], unique=False)
     op.create_index('idx_reports_deleted_at', 'reports', ['deleted_at'], unique=False)
 
@@ -39,7 +39,7 @@ def downgrade():
     # Drop indexes
     op.drop_index('idx_reports_deleted_at', table_name='reports')
     op.drop_index('idx_reports_status', table_name='reports')
-    op.drop_index('idx_reports_tenant_created', table_name='reports')
+    op.drop_index('idx_reports_tenant_uploaded', table_name='reports')
     
     # Remove new columns from reports table
     op.drop_column('reports', 'deleted_at')
