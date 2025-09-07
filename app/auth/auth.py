@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate, UserRead
 
 
 class UserManager(BaseUserManager[User, uuid.UUID]):
@@ -67,8 +66,4 @@ auth_backend = AuthenticationBackend(
 fastapi_users = FastAPIUsers[User, uuid.UUID](
     get_user_manager,
     [auth_backend],
-    User,
-    UserCreate,
-    UserUpdate,
-    UserRead,
 )
