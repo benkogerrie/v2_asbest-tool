@@ -1250,6 +1250,10 @@ Tenant Details:
 
   async function loadPrompts() {
     try {
+      // Debug: Check if we have a token
+      const token = localStorage.getItem('asbest_jwt');
+      console.log('Token in localStorage:', token ? 'Present' : 'Missing');
+      
       const response = await apiCall('/admin/prompts');
       if (response) {
         currentPrompts = response;
@@ -1257,7 +1261,7 @@ Tenant Details:
       }
     } catch (error) {
       console.error('Failed to load prompts:', error);
-      showToast('Fout bij laden van prompts', 'error');
+      showToast('Fout bij laden van prompts: ' + error.message, 'error');
     }
   }
 
@@ -1451,6 +1455,11 @@ Tenant Details:
       content: formData.get('content'),
       status: formData.get('status')
     };
+    
+    // Debug: Check token before making request
+    const token = localStorage.getItem('asbest_jwt');
+    console.log('Token before request:', token ? 'Present' : 'Missing');
+    console.log('Prompt data:', promptData);
     
     try {
       let response;
