@@ -56,11 +56,22 @@ def run_migrations():
                                       capture_output=True, text=True, check=True)
         print(f"Current migration: {current_result.stdout.strip()}")
         
+        # Check if description migration is pending
+        history_result = subprocess.run(['alembic', 'history', '--verbose'], 
+                                      capture_output=True, text=True, check=True)
+        print(f"Migration history: {history_result.stdout}")
+        
         # Then run upgrade
         result = subprocess.run(['alembic', 'upgrade', 'head'], 
                               capture_output=True, text=True, check=True)
         print("✅ Migrations completed successfully")
         print(f"Migration output: {result.stdout}")
+        
+        # Check final status
+        final_result = subprocess.run(['alembic', 'current'], 
+                                    capture_output=True, text=True, check=True)
+        print(f"Final migration status: {final_result.stdout.strip()}")
+        
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Migration failed: {e}")
