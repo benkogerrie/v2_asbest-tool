@@ -1537,6 +1537,11 @@ Tenant Details:
       status: formData.get('status')
     };
     
+    // Add version only for new prompts (not for updates)
+    if (!currentEditingPromptId) {
+      promptData.version = 1;  // Default version for new prompts
+    }
+    
     // Debug: Check token before making request
     const token = localStorage.getItem('asbest_jwt');
     console.log('Token before request:', token ? 'Present' : 'Missing');
