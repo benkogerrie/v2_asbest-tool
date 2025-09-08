@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     # Railway Port (for local testing compatibility)
     port: int = int(os.getenv("PORT", "8000"))
     
-    # Force redeploy flag for description migration
+    # Force redeploy flag for AI API key
     force_redeploy: bool = Field(default=True, env="FORCE_REDEPLOY")
     
     model_config = {
