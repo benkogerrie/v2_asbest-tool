@@ -431,6 +431,9 @@
       case 'Prompts':
         loadPrompts();
         break;
+      case 'AI-Config':
+        loadAIConfigurations();
+        break;
       case 'Admin':
         loadTenants();
         loadUsers();
@@ -1896,6 +1899,328 @@ Tenant Details:
       showToast('Fout bij opslaan van prompt: ' + error.message, 'error');
     }
   }
+
+  // AI Configuration Management
+  let currentAIConfigs = [];
+  let currentEditingAIConfigId = null;
+
+  // Model options for each provider
+  const modelOptions = {
+    anthropic: [
+      { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast)' },
+      { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Balanced)' },
+      { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Most Capable)' }
+    ],
+    openai: [
+      { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+      { value: 'gpt-4o', label: 'GPT-4o (Balanced)' },
+      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo (Most Capable)' }
+    ]
+  };
+
+  function updateModelOptions() {
+    const provider = document.getElementById('ai-config-provider').value;
+    const modelSelect = document.getElementById('ai-config-model');
+    
+    modelSelect.innerHTML = '<option value="">Kies een model...</option>';
+    
+    if (provider && modelOptions[provider]) {
+      modelOptions[provider].forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.value;
+        option.textContent = model.label;
+        modelSelect.appendChild(option);
+      });
+    }
+  }
+
+  function switchAIConfigTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('[id^="ai-config-tab-"]').forEach(tab => {
+      tab.style.display = 'none';
+    });
+    document.querySelectorAll('#ai-config-tab-configurations .tab').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(`ai-config-tab-${tabName}`).style.display = 'block';
+    document.querySelector(`[onclick="switchAIConfigTab('${tabName}')"]`).classList.add('active');
+    
+    if (tabName === 'test') {
+      loadTestConfigOptions();
+    }
+  }
+
+  async function loadAIConfigurations() {
+    try {
+      const response = await apiCall('/admin/ai-configurations/');
+      currentAIConfigs = response;
+      renderAIConfigurations();
+    } catch (error) {
+      console.error('Failed to load AI configurations:', error);
+      showToast('Fout bij laden van AI configuraties: ' + error.message, 'error');
+    }
+  }
+
+  function renderAIConfigurations() {
+    const container = document.getElementById('ai-config-list');
+    
+    if (currentAIConfigs.length === 0) {
+      container.innerHTML = '<div class="muted">Geen AI configuraties gevonden.</div>';
+      return;
+    }
+
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>Naam</th>
+            <th>Provider</th>
+            <th>Model</th>
+            <th>Status</th>
+            <th>Acties</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${currentAIConfigs.map(config => `
+            <tr>
+              <td>${config.name}</td>
+              <td>${config.provider}</td>
+              <td>${config.model}</td>
+              <td>
+                <span class="chip ${config.is_active ? 'ok' : 'warn'}">
+                  ${config.is_active ? 'Actief' : 'Inactief'}
+                </span>
+              </td>
+              <td>
+                <button class="icon-btn" onclick="editAIConfig('${config.id}')" title="Bewerken">✏️</button>
+                <button class="icon-btn" onclick="testAIConfig('${config.id}')" title="Testen">🧪</button>
+                ${!config.is_active ? `<button class="icon-btn" onclick="activateAIConfig('${config.id}')" title="Activeren">✅</button>` : ''}
+                <button class="icon-btn" onclick="deleteAIConfig('${config.id}')" title="Verwijderen">🗑️</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    
+    container.innerHTML = html;
+  }
+
+  function showCreateAIConfigModal() {
+    currentEditingAIConfigId = null;
+    const modal = document.getElementById('ai-config-modal');
+    const title = document.getElementById('ai-config-modal-title');
+    const form = document.getElementById('ai-config-form');
+    
+    title.textContent = 'Nieuwe AI Configuratie';
+    form.reset();
+    updateModelOptions();
+    modal.style.display = 'flex';
+  }
+
+  function editAIConfig(configId) {
+    const config = currentAIConfigs.find(c => c.id === configId);
+    if (!config) return;
+    
+    currentEditingAIConfigId = configId;
+    const modal = document.getElementById('ai-config-modal');
+    const title = document.getElementById('ai-config-modal-title');
+    const form = document.getElementById('ai-config-form');
+    
+    title.textContent = `Bewerk: ${config.name}`;
+    
+    // Fill form with existing data
+    document.getElementById('ai-config-name').value = config.name;
+    document.getElementById('ai-config-provider').value = config.provider;
+    updateModelOptions();
+    document.getElementById('ai-config-model').value = config.model;
+    document.getElementById('ai-config-api-key').value = '***HIDDEN***';
+    document.getElementById('ai-config-is-active').checked = config.is_active;
+    
+    modal.style.display = 'flex';
+  }
+
+  function closeAIConfigModal() {
+    document.getElementById('ai-config-modal').style.display = 'none';
+    currentEditingAIConfigId = null;
+  }
+
+  async function handleAIConfigFormSubmit(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const configData = {
+      name: formData.get('name'),
+      provider: formData.get('provider'),
+      model: formData.get('model'),
+      api_key: formData.get('api_key'),
+      is_active: formData.get('is_active') === 'on'
+    };
+
+    // Don't send hidden API key
+    if (configData.api_key === '***HIDDEN***') {
+      delete configData.api_key;
+    }
+
+    try {
+      let response;
+      if (currentEditingAIConfigId) {
+        response = await apiCall(`/admin/ai-configurations/${currentEditingAIConfigId}`, {
+          method: 'PUT',
+          body: JSON.stringify(configData)
+        });
+      } else {
+        response = await apiCall('/admin/ai-configurations/', {
+          method: 'POST',
+          body: JSON.stringify(configData)
+        });
+      }
+
+      if (response) {
+        showToast(currentEditingAIConfigId ? 'AI configuratie bijgewerkt' : 'AI configuratie aangemaakt', 'success');
+        closeAIConfigModal();
+        loadAIConfigurations();
+      }
+    } catch (error) {
+      console.error('Failed to save AI config:', error);
+      showToast('Fout bij opslaan van AI configuratie: ' + error.message, 'error');
+    }
+  }
+
+  async function testAIConfig(configId) {
+    const config = currentAIConfigs.find(c => c.id === configId);
+    if (!config) return;
+
+    try {
+      showToast('Test wordt uitgevoerd...', 'info');
+      
+      const response = await apiCall(`/admin/ai-configurations/${configId}/test`, {
+        method: 'POST',
+        body: JSON.stringify({
+          sample_text: 'Dit is een test tekst voor AI analyse. Bevat deze tekst asbest-gerelateerde informatie?'
+        })
+      });
+
+      if (response.success) {
+        showToast(`Test succesvol! Uitvoertijd: ${response.execution_time_ms}ms`, 'success');
+      } else {
+        showToast(`Test gefaald: ${response.message}`, 'error');
+      }
+    } catch (error) {
+      console.error('Failed to test AI config:', error);
+      showToast('Fout bij testen van AI configuratie: ' + error.message, 'error');
+    }
+  }
+
+  async function activateAIConfig(configId) {
+    try {
+      const response = await apiCall(`/admin/ai-configurations/${configId}/activate`, {
+        method: 'POST'
+      });
+
+      if (response) {
+        showToast('AI configuratie geactiveerd', 'success');
+        loadAIConfigurations();
+      }
+    } catch (error) {
+      console.error('Failed to activate AI config:', error);
+      showToast('Fout bij activeren van AI configuratie: ' + error.message, 'error');
+    }
+  }
+
+  async function deleteAIConfig(configId) {
+    const config = currentAIConfigs.find(c => c.id === configId);
+    if (!config) return;
+
+    if (!confirm(`Weet je zeker dat je de AI configuratie "${config.name}" wilt verwijderen?`)) {
+      return;
+    }
+
+    try {
+      await apiCall(`/admin/ai-configurations/${configId}`, {
+        method: 'DELETE'
+      });
+
+      showToast('AI configuratie verwijderd', 'success');
+      loadAIConfigurations();
+    } catch (error) {
+      console.error('Failed to delete AI config:', error);
+      showToast('Fout bij verwijderen van AI configuratie: ' + error.message, 'error');
+    }
+  }
+
+  function loadTestConfigOptions() {
+    const select = document.getElementById('test-config-select');
+    select.innerHTML = '<option value="">Kies een configuratie...</option>';
+    
+    currentAIConfigs.forEach(config => {
+      const option = document.createElement('option');
+      option.value = config.id;
+      option.textContent = `${config.name} (${config.provider}/${config.model})`;
+      select.appendChild(option);
+    });
+  }
+
+  async function testAIConfiguration() {
+    const configId = document.getElementById('test-config-select').value;
+    const testText = document.getElementById('test-text').value;
+    const resultsDiv = document.getElementById('test-results');
+
+    if (!configId || !testText) {
+      showToast('Selecteer een configuratie en voer test tekst in', 'error');
+      return;
+    }
+
+    try {
+      resultsDiv.innerHTML = '<div class="muted">Test wordt uitgevoerd...</div>';
+      
+      const response = await apiCall(`/admin/ai-configurations/${configId}/test`, {
+        method: 'POST',
+        body: JSON.stringify({
+          sample_text: testText
+        })
+      });
+
+      if (response.success) {
+        resultsDiv.innerHTML = `
+          <div class="card">
+            <h4>✅ Test Succesvol</h4>
+            <p><strong>Uitvoertijd:</strong> ${response.execution_time_ms}ms</p>
+            <p><strong>Bericht:</strong> ${response.message}</p>
+            ${response.parsed_output ? `
+              <details>
+                <summary>AI Response</summary>
+                <pre style="background: #0d1224; padding: 10px; border-radius: 6px; overflow-x: auto;">${JSON.stringify(response.parsed_output, null, 2)}</pre>
+              </details>
+            ` : ''}
+          </div>
+        `;
+      } else {
+        resultsDiv.innerHTML = `
+          <div class="card">
+            <h4>❌ Test Gefaald</h4>
+            <p><strong>Fout:</strong> ${response.message}</p>
+            ${response.raw_output ? `
+              <details>
+                <summary>Raw Response</summary>
+                <pre style="background: #0d1224; padding: 10px; border-radius: 6px; overflow-x: auto;">${response.raw_output}</pre>
+              </details>
+            ` : ''}
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('Failed to test AI configuration:', error);
+      resultsDiv.innerHTML = `
+        <div class="card">
+          <h4>❌ Test Error</h4>
+          <p><strong>Fout:</strong> ${error.message}</p>
+        </div>
+      `;
+    }
+  }
 </script>
 </head>
 <body>
@@ -1911,6 +2236,7 @@ Tenant Details:
     <nav class="nav">
       <a href="#" data-link="Rapporten" onclick="show('Rapporten')">Rapporten</a>
       <a href="#" data-link="Prompts" onclick="show('Prompts')">AI Prompts</a>
+      <a href="#" data-link="AI-Config" onclick="show('AI-Config')">AI Configuratie</a>
       <a href="#" data-link="Profiel" onclick="show('Profiel')">Profiel</a>
     </nav>
     <nav class="nav" style="margin-top:auto">
@@ -2066,6 +2392,91 @@ Tenant Details:
         </div>
       </div>
     </div>
+
+    <!-- AI CONFIGURATIE MODAL -->
+    <div id="ai-config-modal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="ai-config-modal-title">Nieuwe AI Configuratie</h3>
+          <button class="close-btn" onclick="closeAIConfigModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="ai-config-form" onsubmit="handleAIConfigFormSubmit(event)">
+            <div class="form-group">
+              <label for="ai-config-name">Naam *</label>
+              <input type="text" id="ai-config-name" name="name" required>
+            </div>
+            <div class="form-group">
+              <label for="ai-config-provider">Provider *</label>
+              <select id="ai-config-provider" name="provider" required onchange="updateModelOptions()">
+                <option value="">Kies een provider...</option>
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="openai">OpenAI (GPT)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ai-config-model">Model *</label>
+              <select id="ai-config-model" name="model" required>
+                <option value="">Kies eerst een provider...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="ai-config-api-key">API Key *</label>
+              <input type="password" id="ai-config-api-key" name="api_key" required placeholder="sk-ant-... of sk-...">
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="ai-config-is-active" name="is_active"> Actief maken
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn primary">Opslaan</button>
+              <button type="button" class="btn" onclick="closeAIConfigModal()">Annuleren</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI CONFIGURATIE -->
+    <section data-view="AI-Config" style="display:none">
+      <div class="card">
+        <div class="topbar">
+          <h3>AI Configuratie</h3>
+          <button class="btn primary" onclick="showCreateAIConfigModal()">Nieuwe Configuratie</button>
+        </div>
+        <p class="muted">Beheer AI providers, modellen en API keys voor de analyse functionaliteit.</p>
+      </div>
+
+      <div class="card">
+        <div class="tabs">
+          <div class="tab active" onclick="switchAIConfigTab('configurations')">Configuraties</div>
+          <div class="tab" onclick="switchAIConfigTab('test')">Test</div>
+        </div>
+
+        <!-- Configuraties Tab -->
+        <div id="ai-config-tab-configurations">
+          <div id="ai-config-list">
+            <div class="muted">Laden...</div>
+          </div>
+        </div>
+
+        <!-- Test Tab -->
+        <div id="ai-config-tab-test" style="display:none">
+          <div class="card">
+            <h4>Test AI Configuratie</h4>
+            <label>Selecteer configuratie</label>
+            <select id="test-config-select">
+              <option value="">Kies een configuratie...</option>
+            </select>
+            <label>Test tekst</label>
+            <textarea id="test-text" rows="4" placeholder="Voer test tekst in voor AI analyse..."></textarea>
+            <button class="btn primary" onclick="testAIConfiguration()">Test Configuratie</button>
+            <div id="test-results" style="margin-top: 16px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- PROFIEL -->
     <section data-view="Profiel" style="display:none">
