@@ -72,6 +72,7 @@ async def create_prompt(
 ):
     p = Prompt(
         name=payload.name,
+        description=payload.description,
         role=payload.role,
         content=payload.content,
         version=payload.version,
@@ -105,6 +106,8 @@ async def update_prompt(
     if not p:
         raise HTTPException(404, "Prompt not found")
 
+    if payload.description is not None:
+        p.description = payload.description
     if payload.content is not None:
         p.content = payload.content
     if payload.version is not None:
