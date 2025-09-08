@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     
     # AI Configuration (Slice 8)
     ai_provider: str = Field(default="anthropic", env="AI_PROVIDER")
-    ai_model: str = Field(default="claude-3-5-sonnet", env="AI_MODEL")
+    ai_model: str = Field(default="claude-3-5-haiku-20241022", env="AI_MODEL")
     ai_api_key: str = Field(default="", env="AI_API_KEY")
     ai_timeout: int = Field(default=60, env="AI_TIMEOUT")
     ai_max_tokens: int = Field(default=4000, env="AI_MAX_TOKENS")
