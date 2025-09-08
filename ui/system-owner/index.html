@@ -159,6 +159,8 @@
     const url = `${API_BASE_URL}${endpoint}`;
     const token = localStorage.getItem('asbest_jwt');
     
+    console.log('API Call:', { url, token: token ? 'Present' : 'Missing', options });
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -169,17 +171,31 @@
     };
     
     try {
+      console.log('Making request with config:', config);
       const response = await fetch(url, config);
+      
+      console.log('Response received:', { 
+        status: response.status, 
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       if (response.status === 401) {
         // Unauthorized - redirect to login
         localStorage.removeItem('asbest_jwt');
         window.location.href = '/auth';
         return null;
       }
+      
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Response not OK:', { status: response.status, text: errorText });
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
-      return await response.json();
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+      return data;
     } catch (error) {
       console.error('API Error:', error);
       throw error;
