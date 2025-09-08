@@ -55,7 +55,7 @@ async def test_llm_service():
     """
     
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=120) as client:
             # 1. Get active prompt
             print("📋 Getting active prompt...")
             response = await client.get(f"{base_url}/admin/prompts/")
@@ -126,6 +126,8 @@ async def test_llm_service():
                 
     except Exception as e:
         print(f"❌ Test failed with exception: {e}")
+        import traceback
+        traceback.print_exc()
     
     print("\n" + "=" * 60)
     print("🎯 Test Summary:")

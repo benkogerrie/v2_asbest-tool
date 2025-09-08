@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 
 from app.config import settings
 from app.api import health, tenants, users, reports, analyses, findings, debug
-from app.api.routes import admin_prompts
+from app.api.routes import admin_prompts, admin_ai_config
 from app.auth.auth import fastapi_users, auth_backend
 from app.models.user import User
 from app.schemas.user import UserRead, UserCreate
@@ -50,6 +50,7 @@ app.include_router(reports.router)
 app.include_router(analyses.router)
 app.include_router(findings.router)
 app.include_router(admin_prompts.router)
+app.include_router(admin_ai_config.router)
 app.include_router(debug.router)
 
 # Include FastAPI Users routes
