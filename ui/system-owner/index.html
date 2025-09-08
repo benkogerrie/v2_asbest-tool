@@ -190,7 +190,7 @@
   // Debug: Test prompts endpoint directly
   window.testPromptsEndpoint = async function() {
     try {
-      const url = `${HTTPS_API_URL}/admin/prompts?_cb=${Date.now()}`;
+      const url = `${HTTPS_API_URL}/admin/prompts/?_cb=${Date.now()}`;
       console.log('Testing prompts endpoint:', url);
       const response = await fetch(url);
       console.log('Prompts response:', response);
@@ -268,7 +268,7 @@
 
   async function checkApiHealth() {
     try {
-      const response = await apiCall('/healthz');
+      const response = await apiCall('/healthz/');
       console.log('✅ API is healthy:', response);
       return response.status === 'healthy';
     } catch (error) {
@@ -955,7 +955,7 @@
             });
           } else {
             // Create new user
-            response = await apiCall('/users', {
+            response = await apiCall('/users/', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -1334,7 +1334,8 @@ Tenant Details:
       const token = localStorage.getItem('asbest_jwt');
       console.log('Token in localStorage:', token ? 'Present' : 'Missing');
       
-      const response = await apiCall('/admin/prompts');
+      // TEST: Use trailing slash to avoid Railway redirect issue
+      const response = await apiCall('/admin/prompts/');
       if (response) {
         currentPrompts = response;
         updatePromptsTable(response);
@@ -1450,7 +1451,7 @@ Tenant Details:
 
   async function testPrompt(promptId) {
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}/test-run`, {
+      const response = await apiCall(`/admin/prompts/${promptId}/test-run/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1473,7 +1474,7 @@ Tenant Details:
 
   async function activatePrompt(promptId) {
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}/activate`, {
+      const response = await apiCall(`/admin/prompts/${promptId}/activate/`, {
         method: 'POST'
       });
       
@@ -1491,7 +1492,7 @@ Tenant Details:
     if (!confirm('Weet je zeker dat je deze prompt wilt archiveren?')) return;
     
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}/archive`, {
+      const response = await apiCall(`/admin/prompts/${promptId}/archive/`, {
         method: 'POST'
       });
       
@@ -1509,7 +1510,7 @@ Tenant Details:
     if (!confirm('Weet je zeker dat je deze prompt wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.')) return;
     
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}`, {
+      const response = await apiCall(`/admin/prompts/${promptId}/`, {
         method: 'DELETE'
       });
       
@@ -1545,14 +1546,14 @@ Tenant Details:
       let response;
       if (currentEditingPromptId) {
         // Update existing prompt
-        response = await apiCall(`/admin/prompts/${currentEditingPromptId}`, {
+        response = await apiCall(`/admin/prompts/${currentEditingPromptId}/`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(promptData)
         });
       } else {
-        // Create new prompt
-        response = await apiCall('/admin/prompts', {
+        // Create new prompt - TEST: Use trailing slash
+        response = await apiCall('/admin/prompts/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(promptData)
