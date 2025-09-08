@@ -23,7 +23,11 @@ class LLMService:
 
     async def _call_anthropic(self, system_prompt: str, user_prompt: str) -> AIOutput:
         url = "https://api.anthropic.com/v1/messages"
-        headers = {"x-api-key": self.api_key, "content-type": "application/json"}
+        headers = {
+            "x-api-key": self.api_key,
+            "content-type": "application/json",
+            "anthropic-version": "2023-06-01"
+        }
         body = {
             "model": self.model,
             "system": system_prompt,
