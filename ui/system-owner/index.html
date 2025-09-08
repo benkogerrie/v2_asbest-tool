@@ -149,8 +149,17 @@
   }
 </style>
 <script>
-  // API Configuration - Railway Production URL
-  const API_BASE_URL = 'https://v2asbest-tool-production.up.railway.app';
+  // API Configuration - Railway Production URL (Force HTTPS)
+  let API_BASE_URL = 'https://v2asbest-tool-production.up.railway.app';
+  
+  // Ensure HTTPS is used
+  if (API_BASE_URL.startsWith('http://')) {
+    console.warn('WARNING: API_BASE_URL is HTTP, forcing HTTPS');
+    API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
+  }
+  
+  // Hardcoded HTTPS fallback
+  const HTTPS_API_URL = 'https://v2asbest-tool-production.up.railway.app';
   
   // Debug: Log the API base URL
   console.log('API_BASE_URL set to:', API_BASE_URL);
@@ -172,7 +181,10 @@
 
   // API Helper Functions
   async function apiCall(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
+    // Use hardcoded HTTPS URL to avoid any HTTP issues
+    const url = `${HTTPS_API_URL}${endpoint}`;
+    console.log('Using hardcoded HTTPS URL:', url);
+    
     const token = localStorage.getItem('asbest_jwt');
     
     console.log('API Call:', { url, token: token ? 'Present' : 'Missing', options });
