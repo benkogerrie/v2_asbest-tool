@@ -366,11 +366,15 @@ async def get_prompt_version(
 @router.post("/{prompt_name}/rollback", response_model=PromptOut)
 async def rollback_prompt(
     prompt_name: str,
-    target_version: int = Body(..., embed=True),
+    payload: dict = Body(...),
     session: AsyncSession = Depends(get_db),
     # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
 ):
     """Rollback to a specific version by creating a new version with the old content"""
+    target_version = payload.get("target_version")
+    if not target_version:
+        raise HTTPException(400, "target_version is required")
+    
     # Get the target version
     target_stmt = select(Prompt).where(Prompt.name == prompt_name, Prompt.version == target_version)
     target_result = await session.execute(target_stmt)
