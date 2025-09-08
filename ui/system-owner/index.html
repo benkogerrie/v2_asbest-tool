@@ -1351,13 +1351,14 @@ Tenant Details:
     if (!tbody) return;
 
     if (prompts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Geen prompts gevonden</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted)">Geen prompts gevonden</td></tr>';
       return;
     }
 
     tbody.innerHTML = prompts.map(prompt => `
       <tr>
         <td><strong>${prompt.name}</strong></td>
+        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${prompt.description || 'Geen beschrijving'}">${prompt.description || '-'}</td>
         <td>v${prompt.version}</td>
         <td><span class="chip ${getStatusClass(prompt.status)}">${prompt.status}</span></td>
         <td>${prompt.overrides_count}</td>
@@ -1672,6 +1673,7 @@ Tenant Details:
             <thead>
               <tr>
                 <th>Naam</th>
+                <th>Beschrijving</th>
                 <th>Versie</th>
                 <th>Status</th>
                 <th>Overrides</th>
@@ -1680,7 +1682,7 @@ Tenant Details:
               </tr>
             </thead>
             <tbody id="prompts-table-body">
-              <tr><td colspan="6" style="text-align:center;color:var(--muted)">Laden...</td></tr>
+              <tr><td colspan="7" style="text-align:center;color:var(--muted)">Laden...</td></tr>
             </tbody>
           </table>
         </div>
