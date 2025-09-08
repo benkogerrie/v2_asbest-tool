@@ -353,8 +353,8 @@ async def test_run_prompt(
     try:
         ai_output = await llm.call(system_prompt=system_prompt, user_prompt=payload.sample_text)
         return PromptTestRunOut(
-            raw_output=ai_output.json(),
-            parsed=ai_output.dict()
+            raw_output=ai_output.model_dump_json(),
+            parsed=ai_output.model_dump()
         )
     except Exception as e:
         # Geef raw error terug voor debugging in de UI
