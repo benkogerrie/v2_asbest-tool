@@ -1451,7 +1451,7 @@ Tenant Details:
 
   async function testPrompt(promptId) {
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}/test-run/`, {
+      const response = await apiCall(`/admin/prompts/${promptId}/test-run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1474,7 +1474,7 @@ Tenant Details:
 
   async function activatePrompt(promptId) {
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}/activate/`, {
+      const response = await apiCall(`/admin/prompts/${promptId}/activate`, {
         method: 'POST'
       });
       
@@ -1492,7 +1492,7 @@ Tenant Details:
     if (!confirm('Weet je zeker dat je deze prompt wilt archiveren?')) return;
     
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}/archive/`, {
+      const response = await apiCall(`/admin/prompts/${promptId}/archive`, {
         method: 'POST'
       });
       
@@ -1510,7 +1510,7 @@ Tenant Details:
     if (!confirm('Weet je zeker dat je deze prompt wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.')) return;
     
     try {
-      const response = await apiCall(`/admin/prompts/${promptId}/`, {
+      const response = await apiCall(`/admin/prompts/${promptId}`, {
         method: 'DELETE'
       });
       
@@ -1550,8 +1550,8 @@ Tenant Details:
     try {
       let response;
       if (currentEditingPromptId) {
-        // Update existing prompt
-        response = await apiCall(`/admin/prompts/${currentEditingPromptId}/`, {
+        // Update existing prompt - Use WITHOUT trailing slash for PUT requests
+        response = await apiCall(`/admin/prompts/${currentEditingPromptId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(promptData)
