@@ -10,6 +10,7 @@ OverrideStatus = Literal["draft", "active"]
 # ---- Prompt ----
 class PromptBase(BaseModel):
     name: constr(strip_whitespace=True, min_length=1)
+    description: Optional[str] = None
     role: PromptRole = "system"
     content: constr(min_length=1)
     version: int = Field(..., ge=1)
@@ -19,6 +20,7 @@ class PromptCreate(PromptBase):
     pass
 
 class PromptUpdate(BaseModel):
+    description: Optional[str] = None
     content: Optional[str] = None
     version: Optional[int] = Field(None, ge=1)
     status: Optional[PromptStatus] = None
@@ -26,6 +28,7 @@ class PromptUpdate(BaseModel):
 class PromptOut(BaseModel):
     id: str
     name: str
+    description: Optional[str] = None
     role: PromptRole
     content: str
     version: int
