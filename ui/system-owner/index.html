@@ -161,8 +161,12 @@
     API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
   }
   
-  // Hardcoded HTTPS fallback
+  // Hardcoded HTTPS fallback - Force HTTPS
   const HTTPS_API_URL = 'https://v2asbest-tool-production.up.railway.app';
+  
+  // Verify HTTPS is working
+  console.log('HTTPS_API_URL verified:', HTTPS_API_URL);
+  console.log('URL starts with https:', HTTPS_API_URL.startsWith('https://'));
   
   // Force cache refresh
   console.log('System Owner UI Version: 2025-09-08-01 - HTTPS Fix Applied');
@@ -180,6 +184,20 @@
       console.log('Health check data:', data);
     } catch (error) {
       console.error('Health check error:', error);
+    }
+  };
+  
+  // Debug: Test prompts endpoint directly
+  window.testPromptsEndpoint = async function() {
+    try {
+      const url = `${HTTPS_API_URL}/admin/prompts?_cb=${Date.now()}`;
+      console.log('Testing prompts endpoint:', url);
+      const response = await fetch(url);
+      console.log('Prompts response:', response);
+      const data = await response.json();
+      console.log('Prompts data:', data);
+    } catch (error) {
+      console.error('Prompts test error:', error);
     }
   };
   
