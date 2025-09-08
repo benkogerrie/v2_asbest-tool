@@ -24,7 +24,7 @@ router = APIRouter(prefix="/admin/prompts", tags=["admin:prompts"])
 # ---------- Helpers ----------
 def _to_prompt_out(p: Prompt, overrides_count: int = 0) -> PromptOut:
     return PromptOut(
-        id=str(p.id), name=p.name, role=p.role, content=p.content,
+        id=str(p.id), name=p.name, description=p.description, role=p.role, content=p.content,
         version=p.version, status=p.status,
         created_at=p.created_at.isoformat(), updated_at=p.updated_at.isoformat(),
         overrides_count=overrides_count
