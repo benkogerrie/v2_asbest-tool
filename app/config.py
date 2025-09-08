@@ -13,16 +13,16 @@ class Settings(BaseSettings):
         # Override database_url with environment variable if present
         env_db_url = os.getenv("DATABASE_URL")
         if env_db_url:
-            print(f"🔍 CONFIG: Environment DATABASE_URL found: {env_db_url}")
+            print(f"CONFIG: Environment DATABASE_URL found: {env_db_url}")
             # Convert postgresql:// to postgresql+asyncpg:// for async operations
             if env_db_url.startswith("postgresql://") and not env_db_url.startswith("postgresql+asyncpg://"):
                 self.database_url = env_db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-                print(f"🔍 CONFIG: Converted to async URL: {self.database_url}")
+                print(f"CONFIG: Converted to async URL: {self.database_url}")
             else:
                 self.database_url = env_db_url
-                print(f"🔍 CONFIG: Using URL as-is: {self.database_url}")
+                print(f"CONFIG: Using URL as-is: {self.database_url}")
         else:
-            print(f"🔍 CONFIG: No DATABASE_URL environment variable, using default: {self.database_url}")
+            print(f"CONFIG: No DATABASE_URL environment variable, using default: {self.database_url}")
     
     @property
     def database_url_sync(self) -> str:
