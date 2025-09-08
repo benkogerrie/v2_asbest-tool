@@ -49,10 +49,18 @@ def check_database_url():
 def run_migrations():
     """Run database migrations."""
     print("🔄 Running database migrations...")
+    print("🔍 Checking current migration status...")
     try:
+        # First check current status
+        current_result = subprocess.run(['alembic', 'current'], 
+                                      capture_output=True, text=True, check=True)
+        print(f"Current migration: {current_result.stdout.strip()}")
+        
+        # Then run upgrade
         result = subprocess.run(['alembic', 'upgrade', 'head'], 
                               capture_output=True, text=True, check=True)
         print("✅ Migrations completed successfully")
+        print(f"Migration output: {result.stdout}")
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Migration failed: {e}")
