@@ -39,6 +39,7 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
     try:
         # Create async database session
         db_url = get_db_url()
+        from sqlalchemy.ext.asyncio import create_async_engine
         engine = create_async_engine(db_url)
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         

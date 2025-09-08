@@ -83,10 +83,41 @@ def _process_report_ai(report_id: str) -> bool:
             session.add(audit_start)
             session.commit()
 
-            # TODO: Download PDF from storage and run AI analysis
-            # For now, fallback to rules-based analysis
-            logger.warning("AI analysis not fully implemented yet, falling back to rules-based analysis")
-            return process_report(report_id)
+            # Download PDF from storage and run AI analysis
+            try:
+                # Get PDF from storage
+                if not report.source_object_key:
+                    logger.error(f"No source file found for report {report_id}")
+                    return False
+                
+                # Download PDF from storage
+                pdf_bytes = storage.download_object(report.source_object_key)
+                if not pdf_bytes:
+                    logger.error(f"Failed to download PDF for report {report_id}")
+                    return False
+                
+                logger.info(f"Downloaded PDF for report {report_id}: {len(pdf_bytes)} bytes")
+                
+                # Run AI analysis
+                from app.queue.ai_analysis import run_ai_analysis
+                import asyncio
+                
+                # Run async AI analysis in sync context
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(
+                        run_ai_analysis(str(report.id), str(report.tenant_id), pdf_bytes)
+                    )
+                    logger.info(f"AI analysis completed for report {report_id}")
+                    return True
+                finally:
+                    loop.close()
+                    
+            except Exception as e:
+                logger.error(f"AI analysis failed for report {report_id}: {e}")
+                logger.warning("Falling back to rules-based analysis")
+                return process_report(report_id)
 
         except Exception as e:
             logger.error(f"AI analysis failed for report {report_id}: {e}")
