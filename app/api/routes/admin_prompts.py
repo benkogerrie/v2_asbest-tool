@@ -4,7 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -78,7 +78,7 @@ async def create_prompt(
     # Determine version number
     if existing_prompt:
         # Find highest version for this name
-        max_version_stmt = select(Prompt.version).where(Prompt.name == payload.name).order_by(Prompt.version.desc())
+        max_version_stmt = select(func.max(Prompt.version)).where(Prompt.name == payload.name)
         max_version_result = await session.execute(max_version_stmt)
         max_version = max_version_result.scalar_one_or_none()
         new_version = (max_version or 0) + 1
@@ -145,7 +145,7 @@ async def update_prompt(
     
     # Create new version with changes
     # Find highest version for this name
-    max_version_stmt = select(Prompt.version).where(Prompt.name == existing_prompt.name).order_by(Prompt.version.desc())
+    max_version_stmt = select(func.max(Prompt.version)).where(Prompt.name == existing_prompt.name)
     max_version_result = await session.execute(max_version_stmt)
     max_version = max_version_result.scalar_one_or_none()
     new_version = (max_version or 0) + 1
