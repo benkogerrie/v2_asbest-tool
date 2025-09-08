@@ -13,7 +13,7 @@ class PromptBase(BaseModel):
     description: Optional[str] = None
     role: PromptRole = "system"
     content: constr(min_length=1)
-    version: int = Field(..., ge=1)
+    version: Optional[int] = Field(None, ge=1)  # Optional, will be auto-generated
     status: PromptStatus = "draft"
 
 class PromptCreate(PromptBase):

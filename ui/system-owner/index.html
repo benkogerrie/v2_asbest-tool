@@ -137,6 +137,143 @@
     resize: vertical;
     min-height: 100px;
   }
+
+  /* Version History Styles */
+  .prompt-viewer-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-button {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+
+  .tab-button:hover {
+    color: var(--text);
+  }
+
+  .tab-button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .prompt-tab-content {
+    display: none;
+  }
+
+  .prompt-tab-content.active {
+    display: block;
+  }
+
+  .version-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .version-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .version-item:hover {
+    border-color: var(--primary);
+  }
+
+  .version-item.latest {
+    border-color: var(--primary);
+    background: rgba(43, 99, 255, 0.05);
+  }
+
+  .version-item.current {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.05);
+  }
+
+  .version-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .version-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .version-number {
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 16px;
+  }
+
+  .latest-badge {
+    background: var(--primary);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .current-badge {
+    background: #22c55e;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .version-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .version-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .version-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .version-description {
+    font-style: italic;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    border-radius: 4px;
+  }
+
+  .version-content-preview {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--muted);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    border-radius: 4px;
+    border-left: 3px solid var(--primary);
+  }
   
   .form-actions {
     display: flex;
@@ -1424,26 +1561,187 @@ Tenant Details:
     const title = document.getElementById('prompt-viewer-title');
     const content = document.getElementById('prompt-viewer-content');
     
-    title.textContent = `Prompt: ${prompt.name}`;
+    title.textContent = `Prompt: ${prompt.name} (v${prompt.version})`;
     content.innerHTML = `
-      <div style="margin-bottom: 16px;">
-        <strong>Naam:</strong> ${prompt.name}<br>
-        <strong>Versie:</strong> v${prompt.version}<br>
-        <strong>Status:</strong> <span class="chip ${getStatusClass(prompt.status)}">${prompt.status}</span><br>
-        <strong>Bijgewerkt:</strong> ${new Date(prompt.updated_at).toLocaleString('nl-NL')}
+      <div class="prompt-viewer-tabs">
+        <button class="tab-button active" onclick="showPromptTab('current')">Huidige Versie</button>
+        <button class="tab-button" onclick="showPromptTab('history')">Versiegeschiedenis</button>
       </div>
-      ${prompt.description ? `<div style="margin-bottom: 16px;"><strong>Beschrijving:</strong><br>${prompt.description}</div>` : ''}
-      <div>
-        <strong>Content:</strong>
-        <pre style="background: var(--bg-secondary); padding: 12px; border-radius: 4px; margin-top: 8px; white-space: pre-wrap; font-family: monospace; font-size: 13px;">${prompt.content}</pre>
+      
+      <div id="prompt-current-tab" class="prompt-tab-content active">
+        <div style="margin-bottom: 16px;">
+          <strong>Naam:</strong> ${prompt.name}<br>
+          <strong>Versie:</strong> v${prompt.version}<br>
+          <strong>Status:</strong> <span class="chip ${getStatusClass(prompt.status)}">${prompt.status}</span><br>
+          <strong>Bijgewerkt:</strong> ${new Date(prompt.updated_at).toLocaleString('nl-NL')}
+        </div>
+        ${prompt.description ? `<div style="margin-bottom: 16px;"><strong>Beschrijving:</strong><br>${prompt.description}</div>` : ''}
+        <div>
+          <strong>Content:</strong>
+          <pre style="background: var(--bg-secondary); padding: 12px; border-radius: 4px; margin-top: 8px; white-space: pre-wrap; font-family: monospace; font-size: 13px;">${prompt.content}</pre>
+        </div>
+      </div>
+      
+      <div id="prompt-history-tab" class="prompt-tab-content">
+        <div id="version-history-content">
+          <div style="text-align: center; padding: 20px;">
+            <div class="spinner"></div>
+            <p>Versiegeschiedenis laden...</p>
+          </div>
+        </div>
       </div>
     `;
     
     modal.style.display = 'flex';
+    
+    // Load version history
+    loadVersionHistory(prompt.name);
   }
 
   function closePromptViewerModal() {
     document.getElementById('prompt-viewer-modal').style.display = 'none';
+  }
+
+  function showPromptTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.prompt-tab-content').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(`prompt-${tabName}-tab`).classList.add('active');
+    document.querySelector(`[onclick="showPromptTab('${tabName}')"]`).classList.add('active');
+  }
+
+  async function loadVersionHistory(promptName) {
+    try {
+      const response = await apiCall(`/admin/prompts/${encodeURIComponent(promptName)}/versions/`);
+      const versions = response;
+      
+      const historyContent = document.getElementById('version-history-content');
+      
+      if (versions.length === 0) {
+        historyContent.innerHTML = '<p>Geen versiegeschiedenis gevonden.</p>';
+        return;
+      }
+      
+      let html = '<div class="version-history-list">';
+      
+      versions.forEach((version, index) => {
+        const isLatest = index === 0;
+        const isCurrent = version.status === 'active';
+        
+        html += `
+          <div class="version-item ${isLatest ? 'latest' : ''} ${isCurrent ? 'current' : ''}">
+            <div class="version-header">
+              <div class="version-info">
+                <span class="version-number">v${version.version}</span>
+                <span class="version-status chip ${getStatusClass(version.status)}">${version.status}</span>
+                ${isLatest ? '<span class="latest-badge">Nieuwste</span>' : ''}
+                ${isCurrent ? '<span class="current-badge">Actief</span>' : ''}
+              </div>
+              <div class="version-actions">
+                <button class="btn btn-sm btn-outline" onclick="viewVersion('${promptName}', ${version.version})">
+                  Bekijk
+                </button>
+                ${!isLatest ? `
+                  <button class="btn btn-sm btn-primary" onclick="rollbackToVersion('${promptName}', ${version.version})">
+                    Rollback
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+            <div class="version-details">
+              <div class="version-meta">
+                <span>Gemaakt: ${new Date(version.created_at).toLocaleString('nl-NL')}</span>
+                <span>Bijgewerkt: ${new Date(version.updated_at).toLocaleString('nl-NL')}</span>
+              </div>
+              ${version.description ? `<div class="version-description">${version.description}</div>` : ''}
+              <div class="version-content-preview">
+                ${version.content.substring(0, 200)}${version.content.length > 200 ? '...' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      historyContent.innerHTML = html;
+      
+    } catch (error) {
+      console.error('Error loading version history:', error);
+      document.getElementById('version-history-content').innerHTML = 
+        '<p style="color: var(--error-color);">Fout bij laden van versiegeschiedenis.</p>';
+    }
+  }
+
+  async function viewVersion(promptName, version) {
+    try {
+      const response = await apiCall(`/admin/prompts/${encodeURIComponent(promptName)}/versions/${version}`);
+      const versionData = response;
+      
+      // Create a new modal for version viewing
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Versie ${version} van ${promptName}</h3>
+            <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div style="margin-bottom: 16px;">
+              <strong>Naam:</strong> ${versionData.name}<br>
+              <strong>Versie:</strong> v${versionData.version}<br>
+              <strong>Status:</strong> <span class="chip ${getStatusClass(versionData.status)}">${versionData.status}</span><br>
+              <strong>Gemaakt:</strong> ${new Date(versionData.created_at).toLocaleString('nl-NL')}<br>
+              <strong>Bijgewerkt:</strong> ${new Date(versionData.updated_at).toLocaleString('nl-NL')}
+            </div>
+            ${versionData.description ? `<div style="margin-bottom: 16px;"><strong>Beschrijving:</strong><br>${versionData.description}</div>` : ''}
+            <div>
+              <strong>Content:</strong>
+              <pre style="background: var(--bg-secondary); padding: 12px; border-radius: 4px; margin-top: 8px; white-space: pre-wrap; font-family: monospace; font-size: 13px;">${versionData.content}</pre>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      modal.style.display = 'flex';
+      
+    } catch (error) {
+      console.error('Error viewing version:', error);
+      showToast('Fout bij laden van versie', 'error');
+    }
+  }
+
+  async function rollbackToVersion(promptName, targetVersion) {
+    if (!confirm(`Weet je zeker dat je wilt terugkeren naar versie ${targetVersion}? Dit zal een nieuwe versie aanmaken met de inhoud van versie ${targetVersion}.`)) {
+      return;
+    }
+    
+    try {
+      const response = await apiCall(`/admin/prompts/${encodeURIComponent(promptName)}/rollback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ target_version: targetVersion })
+      });
+      
+      showToast(`Succesvol teruggekeerd naar versie ${targetVersion}`, 'success');
+      
+      // Reload prompts and close modal
+      await loadPrompts();
+      closePromptViewerModal();
+      
+    } catch (error) {
+      console.error('Error rolling back version:', error);
+      showToast('Fout bij terugkeren naar versie', 'error');
+    }
   }
 
   function editPrompt(promptId) {

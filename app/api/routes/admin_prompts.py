@@ -70,12 +70,27 @@ async def create_prompt(
     session: AsyncSession = Depends(get_db),
     # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
 ):
+    # Check if prompt with same name already exists
+    existing_stmt = select(Prompt).where(Prompt.name == payload.name)
+    existing_result = await session.execute(existing_stmt)
+    existing_prompt = existing_result.scalar_one_or_none()
+    
+    # Determine version number
+    if existing_prompt:
+        # Find highest version for this name
+        max_version_stmt = select(Prompt.version).where(Prompt.name == payload.name).order_by(Prompt.version.desc())
+        max_version_result = await session.execute(max_version_stmt)
+        max_version = max_version_result.scalar_one_or_none()
+        new_version = (max_version or 0) + 1
+    else:
+        new_version = 1
+    
     p = Prompt(
         name=payload.name,
         description=payload.description,
         role=payload.role,
         content=payload.content,
-        version=payload.version,
+        version=new_version,
         status=payload.status,
     )
     session.add(p)
@@ -102,23 +117,46 @@ async def update_prompt(
     session: AsyncSession = Depends(get_db),
     # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
 ):
-    p = await session.get(Prompt, UUID(prompt_id))
-    if not p:
+    # Get the existing prompt
+    existing_prompt = await session.get(Prompt, UUID(prompt_id))
+    if not existing_prompt:
         raise HTTPException(404, "Prompt not found")
 
-    if payload.description is not None:
-        p.description = payload.description
-    if payload.content is not None:
-        p.content = payload.content
-    if payload.version is not None:
-        p.version = payload.version
-    if payload.status is not None:
-        p.status = payload.status
-
+    # Check if there are actual changes
+    has_changes = (
+        (payload.description is not None and payload.description != existing_prompt.description) or
+        (payload.content is not None and payload.content != existing_prompt.content) or
+        (payload.status is not None and payload.status != existing_prompt.status)
+    )
+    
+    if not has_changes:
+        # No changes, return existing prompt
+        cnt = len(existing_prompt.overrides) if existing_prompt.overrides is not None else 0
+        return _to_prompt_out(existing_prompt, overrides_count=cnt)
+    
+    # Create new version with changes
+    # Find highest version for this name
+    max_version_stmt = select(Prompt.version).where(Prompt.name == existing_prompt.name).order_by(Prompt.version.desc())
+    max_version_result = await session.execute(max_version_stmt)
+    max_version = max_version_result.scalar_one_or_none()
+    new_version = (max_version or 0) + 1
+    
+    # Create new prompt version
+    new_prompt = Prompt(
+        name=existing_prompt.name,
+        description=payload.description if payload.description is not None else existing_prompt.description,
+        role=existing_prompt.role,
+        content=payload.content if payload.content is not None else existing_prompt.content,
+        version=new_version,
+        status=payload.status if payload.status is not None else existing_prompt.status,
+    )
+    
+    session.add(new_prompt)
     await session.commit()
-    await session.refresh(p)
-    cnt = len(p.overrides) if p.overrides is not None else 0
-    return _to_prompt_out(p, overrides_count=cnt)
+    await session.refresh(new_prompt)
+    
+    cnt = len(new_prompt.overrides) if new_prompt.overrides is not None else 0
+    return _to_prompt_out(new_prompt, overrides_count=cnt)
 
 @router.post("/{prompt_id}/activate", response_model=PromptOut)
 async def activate_prompt(
@@ -289,3 +327,76 @@ async def test_run_prompt(
     except Exception as e:
         # Geef raw error terug voor debugging in de UI
         raise HTTPException(status_code=422, detail=f"Test-run failed: {e}")
+
+# ---------- Version History ----------
+
+@router.get("/{prompt_name}/versions", response_model=List[PromptOut])
+async def get_prompt_versions(
+    prompt_name: str,
+    session: AsyncSession = Depends(get_db),
+    # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
+):
+    """Get all versions of a prompt by name, ordered by version descending"""
+    stmt = select(Prompt).where(Prompt.name == prompt_name).order_by(Prompt.version.desc())
+    result = await session.execute(stmt)
+    prompts = result.scalars().all()
+    
+    if not prompts:
+        raise HTTPException(404, f"No prompt found with name '{prompt_name}'")
+    
+    return [_to_prompt_out(p, overrides_count=len(p.overrides) if p.overrides else 0) for p in prompts]
+
+@router.get("/{prompt_name}/versions/{version}", response_model=PromptOut)
+async def get_prompt_version(
+    prompt_name: str,
+    version: int,
+    session: AsyncSession = Depends(get_db),
+    # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
+):
+    """Get a specific version of a prompt"""
+    stmt = select(Prompt).where(Prompt.name == prompt_name, Prompt.version == version)
+    result = await session.execute(stmt)
+    prompt = result.scalar_one_or_none()
+    
+    if not prompt:
+        raise HTTPException(404, f"Prompt '{prompt_name}' version {version} not found")
+    
+    return _to_prompt_out(prompt, overrides_count=len(prompt.overrides) if prompt.overrides else 0)
+
+@router.post("/{prompt_name}/rollback", response_model=PromptOut)
+async def rollback_prompt(
+    prompt_name: str,
+    target_version: int = Body(..., embed=True),
+    session: AsyncSession = Depends(get_db),
+    # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
+):
+    """Rollback to a specific version by creating a new version with the old content"""
+    # Get the target version
+    target_stmt = select(Prompt).where(Prompt.name == prompt_name, Prompt.version == target_version)
+    target_result = await session.execute(target_stmt)
+    target_prompt = target_result.scalar_one_or_none()
+    
+    if not target_prompt:
+        raise HTTPException(404, f"Prompt '{prompt_name}' version {target_version} not found")
+    
+    # Find highest version for this name
+    max_version_stmt = select(Prompt.version).where(Prompt.name == prompt_name).order_by(Prompt.version.desc())
+    max_version_result = await session.execute(max_version_stmt)
+    max_version = max_version_result.scalar_one_or_none()
+    new_version = (max_version or 0) + 1
+    
+    # Create new version with target content
+    rollback_prompt = Prompt(
+        name=target_prompt.name,
+        description=target_prompt.description,
+        role=target_prompt.role,
+        content=target_prompt.content,
+        version=new_version,
+        status=target_prompt.status,
+    )
+    
+    session.add(rollback_prompt)
+    await session.commit()
+    await session.refresh(rollback_prompt)
+    
+    return _to_prompt_out(rollback_prompt, overrides_count=0)
