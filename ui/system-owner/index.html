@@ -152,6 +152,22 @@
   // API Configuration - Railway Production URL
   const API_BASE_URL = 'https://v2asbest-tool-production.up.railway.app';
   
+  // Debug: Log the API base URL
+  console.log('API_BASE_URL set to:', API_BASE_URL);
+  
+  // Debug: Test function to check URL
+  window.testApiUrl = async function() {
+    try {
+      console.log('Testing API URL:', API_BASE_URL);
+      const response = await fetch(`${API_BASE_URL}/healthz`);
+      console.log('Health check response:', response);
+      const data = await response.json();
+      console.log('Health check data:', data);
+    } catch (error) {
+      console.error('Health check error:', error);
+    }
+  };
+  
   const CURRENT_USER = { firstName: 'System', lastName: 'Owner', full: 'System Owner' };
 
   // API Helper Functions
