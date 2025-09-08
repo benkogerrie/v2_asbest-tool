@@ -167,8 +167,8 @@
   // Debug: Test function to check URL
   window.testApiUrl = async function() {
     try {
-      console.log('Testing API URL:', API_BASE_URL);
-      const response = await fetch(`${API_BASE_URL}/healthz`);
+      console.log('Testing API URL:', HTTPS_API_URL);
+      const response = await fetch(`${HTTPS_API_URL}/healthz`);
       console.log('Health check response:', response);
       const data = await response.json();
       console.log('Health check data:', data);
@@ -182,8 +182,13 @@
   // API Helper Functions
   async function apiCall(endpoint, options = {}) {
     // Use hardcoded HTTPS URL to avoid any HTTP issues
-    const url = `${HTTPS_API_URL}${endpoint}`;
-    console.log('Using hardcoded HTTPS URL:', url);
+    let url = `${HTTPS_API_URL}${endpoint}`;
+    
+    // Add cache busting parameter to force fresh requests
+    const separator = endpoint.includes('?') ? '&' : '?';
+    url += `${separator}_cb=${Date.now()}`;
+    
+    console.log('Using hardcoded HTTPS URL with cache busting:', url);
     
     const token = localStorage.getItem('asbest_jwt');
     
@@ -445,7 +450,7 @@
       bar.style.width = '0%';
 
       // Build URL with tenant_id query parameter if needed
-      let url = `${API_BASE_URL}/reports/`;
+      let url = `${HTTPS_API_URL}/reports/`;
       if (tenantId) {
         url += `?tenant_id=${encodeURIComponent(tenantId)}`;
       }
@@ -723,7 +728,7 @@
     
     try {
       const token = localStorage.getItem('asbest_jwt');
-      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/source`, {
+      const response = await fetch(`${HTTPS_API_URL}/reports/${currentReportId}/source`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -756,7 +761,7 @@
     
     try {
       const token = localStorage.getItem('asbest_jwt');
-      const response = await fetch(`${API_BASE_URL}/reports/${currentReportId}/conclusion`, {
+      const response = await fetch(`${HTTPS_API_URL}/reports/${currentReportId}/conclusion`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
