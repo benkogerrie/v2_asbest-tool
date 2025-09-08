@@ -1475,12 +1475,30 @@ Tenant Details:
       const response = await apiCall('/admin/prompts/');
       if (response) {
         currentPrompts = response;
-        updatePromptsTable(response);
+        
+        // Filter to show only the latest version of each prompt
+        const latestVersions = getLatestVersions(response);
+        updatePromptsTable(latestVersions);
       }
     } catch (error) {
       console.error('Failed to load prompts:', error);
       showToast('Fout bij laden van prompts: ' + error.message, 'error');
     }
+  }
+
+  function getLatestVersions(prompts) {
+    // Group prompts by name and get the latest version of each
+    const promptGroups = {};
+    
+    prompts.forEach(prompt => {
+      const name = prompt.name;
+      if (!promptGroups[name] || prompt.version > promptGroups[name].version) {
+        promptGroups[name] = prompt;
+      }
+    });
+    
+    // Return array of latest versions
+    return Object.values(promptGroups);
   }
 
   function updatePromptsTable(prompts) {
@@ -1618,7 +1636,7 @@ Tenant Details:
 
   async function loadVersionHistory(promptName) {
     try {
-      const response = await apiCall(`/admin/prompts/${encodeURIComponent(promptName)}/versions/`);
+      const response = await apiCall(`/admin/prompts/${encodeURIComponent(promptName)}/versions`);
       const versions = response;
       
       const historyContent = document.getElementById('version-history-content');
