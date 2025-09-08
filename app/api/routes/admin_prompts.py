@@ -337,12 +337,15 @@ async def get_prompt_versions(
     # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
 ):
     """Get all versions of a prompt by name, ordered by version descending"""
-    stmt = select(Prompt).where(Prompt.name == prompt_name).order_by(Prompt.version.desc())
+    import urllib.parse
+    decoded_prompt_name = urllib.parse.unquote(prompt_name)
+    
+    stmt = select(Prompt).where(Prompt.name == decoded_prompt_name).order_by(Prompt.version.desc())
     result = await session.execute(stmt)
     prompts = result.scalars().all()
     
     if not prompts:
-        raise HTTPException(404, f"No prompt found with name '{prompt_name}'")
+        raise HTTPException(404, f"No prompt found with name '{decoded_prompt_name}'")
     
     return [_to_prompt_out(p, overrides_count=len(p.overrides) if p.overrides else 0) for p in prompts]
 
@@ -354,12 +357,15 @@ async def get_prompt_version(
     # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
 ):
     """Get a specific version of a prompt"""
-    stmt = select(Prompt).where(Prompt.name == prompt_name, Prompt.version == version)
+    import urllib.parse
+    decoded_prompt_name = urllib.parse.unquote(prompt_name)
+    
+    stmt = select(Prompt).where(Prompt.name == decoded_prompt_name, Prompt.version == version)
     result = await session.execute(stmt)
     prompt = result.scalar_one_or_none()
     
     if not prompt:
-        raise HTTPException(404, f"Prompt '{prompt_name}' version {version} not found")
+        raise HTTPException(404, f"Prompt '{decoded_prompt_name}' version {version} not found")
     
     return _to_prompt_out(prompt, overrides_count=len(prompt.overrides) if prompt.overrides else 0)
 
@@ -371,36 +377,46 @@ async def rollback_prompt(
     # _=Depends(get_current_system_owner),  # Temporarily disabled due to 401 issue
 ):
     """Rollback to a specific version by creating a new version with the old content"""
-    target_version = payload.get("target_version")
-    if not target_version:
-        raise HTTPException(400, "target_version is required")
-    
-    # Get the target version
-    target_stmt = select(Prompt).where(Prompt.name == prompt_name, Prompt.version == target_version)
-    target_result = await session.execute(target_stmt)
-    target_prompt = target_result.scalar_one_or_none()
-    
-    if not target_prompt:
-        raise HTTPException(404, f"Prompt '{prompt_name}' version {target_version} not found")
-    
-    # Find highest version for this name
-    max_version_stmt = select(Prompt.version).where(Prompt.name == prompt_name).order_by(Prompt.version.desc())
-    max_version_result = await session.execute(max_version_stmt)
-    max_version = max_version_result.scalar_one_or_none()
-    new_version = (max_version or 0) + 1
-    
-    # Create new version with target content
-    rollback_prompt = Prompt(
-        name=target_prompt.name,
-        description=target_prompt.description,
-        role=target_prompt.role,
-        content=target_prompt.content,
-        version=new_version,
-        status=target_prompt.status,
-    )
-    
-    session.add(rollback_prompt)
-    await session.commit()
-    await session.refresh(rollback_prompt)
-    
-    return _to_prompt_out(rollback_prompt, overrides_count=0)
+    try:
+        target_version = payload.get("target_version")
+        if not target_version:
+            raise HTTPException(400, "target_version is required")
+        
+        # URL decode the prompt name
+        import urllib.parse
+        decoded_prompt_name = urllib.parse.unquote(prompt_name)
+        
+        # Get the target version
+        target_stmt = select(Prompt).where(Prompt.name == decoded_prompt_name, Prompt.version == target_version)
+        target_result = await session.execute(target_stmt)
+        target_prompt = target_result.scalar_one_or_none()
+        
+        if not target_prompt:
+            raise HTTPException(404, f"Prompt '{decoded_prompt_name}' version {target_version} not found")
+        
+        # Find highest version for this name
+        max_version_stmt = select(Prompt.version).where(Prompt.name == decoded_prompt_name).order_by(Prompt.version.desc())
+        max_version_result = await session.execute(max_version_stmt)
+        max_version = max_version_result.scalar_one_or_none()
+        new_version = (max_version or 0) + 1
+        
+        # Create new version with target content (copy all details)
+        rollback_prompt = Prompt(
+            name=target_prompt.name,
+            description=target_prompt.description,
+            role=target_prompt.role,
+            content=target_prompt.content,
+            version=new_version,
+            status=target_prompt.status,  # Keep the same status as the target version
+        )
+        
+        session.add(rollback_prompt)
+        await session.commit()
+        await session.refresh(rollback_prompt)
+        
+        return _to_prompt_out(rollback_prompt, overrides_count=0)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Rollback failed: {str(e)}")
