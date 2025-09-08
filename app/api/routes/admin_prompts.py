@@ -85,6 +85,15 @@ async def create_prompt(
     else:
         new_version = 1
     
+    # If setting to active, deactivate all other active prompts first
+    if payload.status == "active":
+        deactivate_stmt = select(Prompt).where(Prompt.status == "active")
+        deactivate_result = await session.execute(deactivate_stmt)
+        active_prompts = deactivate_result.scalars().all()
+        
+        for active_prompt in active_prompts:
+            active_prompt.status = "draft"
+    
     p = Prompt(
         name=payload.name,
         description=payload.description,
@@ -141,6 +150,18 @@ async def update_prompt(
     max_version = max_version_result.scalar_one_or_none()
     new_version = (max_version or 0) + 1
     
+    # Determine the new status
+    new_status = payload.status if payload.status is not None else existing_prompt.status
+    
+    # If setting to active, deactivate all other active prompts first
+    if new_status == "active":
+        deactivate_stmt = select(Prompt).where(Prompt.status == "active")
+        deactivate_result = await session.execute(deactivate_stmt)
+        active_prompts = deactivate_result.scalars().all()
+        
+        for active_prompt in active_prompts:
+            active_prompt.status = "draft"
+    
     # Create new prompt version
     new_prompt = Prompt(
         name=existing_prompt.name,
@@ -148,7 +169,7 @@ async def update_prompt(
         role=existing_prompt.role,
         content=payload.content if payload.content is not None else existing_prompt.content,
         version=new_version,
-        status=payload.status if payload.status is not None else existing_prompt.status,
+        status=new_status,
     )
     
     session.add(new_prompt)
@@ -167,7 +188,18 @@ async def activate_prompt(
     p = await session.get(Prompt, UUID(prompt_id))
     if not p:
         raise HTTPException(404, "Prompt not found")
+    
+    # First, deactivate all other active prompts
+    deactivate_stmt = select(Prompt).where(Prompt.status == "active")
+    deactivate_result = await session.execute(deactivate_stmt)
+    active_prompts = deactivate_result.scalars().all()
+    
+    for active_prompt in active_prompts:
+        active_prompt.status = "draft"
+    
+    # Then activate the selected prompt
     p.status = "active"
+    
     await session.commit()
     await session.refresh(p)
     return _to_prompt_out(p, overrides_count=len(p.overrides) if p.overrides else 0)

@@ -1666,8 +1666,8 @@ Tenant Details:
                   Bekijk
                 </button>
                 ${!isLatest ? `
-                  <button class="btn btn-sm btn-primary" onclick="rollbackToVersion('${promptName}', ${version.version})">
-                    Rollback
+                  <button class="btn btn-sm btn-secondary" disabled title="Rollback functionaliteit wordt nog ontwikkeld">
+                    Rollback (Binnenkort)
                   </button>
                 ` : ''}
               </div>
@@ -1737,6 +1737,10 @@ Tenant Details:
   }
 
   async function rollbackToVersion(promptName, targetVersion) {
+    // Temporarily disabled - see technical debt
+    showToast('Rollback functionaliteit wordt nog ontwikkeld', 'info');
+    return;
+    
     if (!confirm(`Weet je zeker dat je wilt terugkeren naar versie ${targetVersion}? Dit zal een nieuwe versie aanmaken met de inhoud van versie ${targetVersion}.`)) {
       return;
     }
