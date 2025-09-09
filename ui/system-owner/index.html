@@ -820,9 +820,8 @@
       }
       
       // Load findings data
-      const findingsResponse = await apiCall(`/findings/reports/${reportId}/findings`);
-      if (findingsResponse && findingsResponse.ok) {
-        const findings = await findingsResponse.json();
+      const findings = await apiCall(`/findings/reports/${reportId}/findings`);
+      if (findings && Array.isArray(findings)) {
         updateFindingsView(findings);
       }
     } catch (error) {
