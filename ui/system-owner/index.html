@@ -458,6 +458,37 @@
   function confirmDelete(){alert('Rapport verwijderd (soft-delete).');}
   function confirmRestore(){alert('Rapport hersteld.');}
   
+  // Reanalyze report with AI
+  async function reanalyzeReport(reportId) {
+    if (!confirm('Weet je zeker dat je dit rapport opnieuw wilt analyseren met de huidige AI prompt? Dit overschrijft de bestaande analyse.')) {
+      return;
+    }
+    
+    try {
+      showToast('Heranalyse gestart...', 'info');
+      
+      // Call the reanalyze endpoint
+      const response = await apiCall(`/reports/${reportId}/reanalyze`, {
+        method: 'POST'
+      });
+      
+      if (response.success) {
+        showToast('Heranalyse succesvol gestart! Het rapport wordt opnieuw verwerkt.', 'success');
+        
+        // Refresh the reports list to show updated status
+        setTimeout(() => {
+          loadReports();
+        }, 1000);
+      } else {
+        throw new Error(response.message || 'Heranalyse mislukt');
+      }
+      
+    } catch (error) {
+      console.error('Reanalyze failed:', error);
+      showToast('Heranalyse mislukt: ' + (error.message || 'Onbekende fout'), 'error');
+    }
+  }
+  
   // Load Tenants
   async function loadTenants() {
     try {
@@ -672,6 +703,7 @@
         <td>${formatDate(report.uploaded_at)}</td>
         <td>
           <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
+          <button class="icon-btn" title="Heranalyseer met AI" onclick="reanalyzeReport('${report.id}')" ${report.status === 'PROCESSING' ? 'disabled' : ''}>🔄</button>
           ${report.status === 'DELETED_SOFT' ? 
             '<button class="icon-btn" title="Herstel" onclick="confirmRestore()">♻️</button>' : 
             '<button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>'

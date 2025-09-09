@@ -831,3 +831,176 @@ async def soft_delete_report(
             status_code=500,
             detail="Failed to delete report"
         )
+
+
+@router.post("/{report_id}/reanalyze")
+async def reanalyze_report(
+    report_id: str,
+    current_user: User = Depends(fastapi_users.current_user(active=True)),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Reanalyze a report with the current AI prompt.
+    
+    This endpoint resets the report status to PROCESSING and triggers
+    a new AI analysis with the currently active prompt.
+    """
+    from app.queue.jobs import process_report_with_ai
+    from app.models.report import ReportStatus
+    from app.models.analysis import Analysis
+    from app.models.finding import Finding
+    from app.models.report import ReportAuditLog, AuditAction
+    from datetime import datetime, timezone
+    import uuid as uuid_lib
+    
+    # Validate report_id format
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
+    
+    # Get report with tenant scoping
+    result = await session.execute(
+        select(Report).where(
+            Report.id == report_uuid,
+            Report.tenant_id == current_user.tenant_id,
+            Report.deleted_at.is_(None)
+        )
+    )
+    report = result.scalar_one_or_none()
+    
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
+    
+    # Check if report is currently being processed
+    if report.status == ReportStatus.PROCESSING:
+        raise HTTPException(
+            status_code=400,
+            detail="Report is already being processed"
+        )
+    
+    try:
+        # Reset report status to PROCESSING
+        report.status = ReportStatus.PROCESSING
+        report.score = None
+        report.finding_count = 0
+        report.updated_at = datetime.now(timezone.utc)
+        session.add(report)
+        
+        # Delete existing analysis and findings
+        existing_analysis = await session.execute(
+            select(Analysis).where(Analysis.report_id == report_uuid)
+        )
+        for analysis in existing_analysis.scalars().all():
+            # Delete findings first
+            await session.execute(
+                select(Finding).where(Finding.analysis_id == analysis.id)
+            )
+            findings = await session.execute(
+                select(Finding).where(Finding.analysis_id == analysis.id)
+            )
+            for finding in findings.scalars().all():
+                await session.delete(finding)
+            
+            # Delete analysis
+            await session.delete(analysis)
+        
+        # Create audit log
+        audit_log = ReportAuditLog(
+            report_id=report.id,
+            actor_user_id=current_user.id,
+            action=AuditAction.PROCESS_START,
+            note=f"Report reanalysis started by {current_user.email}"
+        )
+        session.add(audit_log)
+        
+        await session.commit()
+        
+        # Trigger AI analysis in background
+        # Note: This is a simplified approach. In production, you might want to use
+        # a proper job queue system like RQ or Celery
+        try:
+            # Import here to avoid circular imports
+            from app.queue.jobs import process_report_with_ai
+            
+            # Start the AI analysis process
+            # This will run in the background
+            import asyncio
+            asyncio.create_task(
+                _trigger_ai_analysis(str(report_uuid))
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to trigger AI analysis for report {report_id}: {e}")
+            # Don't fail the request if background processing fails
+        
+        logger.info(f"Report {report_id} reanalysis started by user {current_user.id}")
+        
+        return {
+            "success": True,
+            "message": "Report reanalysis started successfully",
+            "report_id": report_id,
+            "status": "PROCESSING"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting reanalysis for report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to start reanalysis"
+        )
+
+
+async def _trigger_ai_analysis(report_id: str):
+    """
+    Trigger AI analysis for a report.
+    This runs in the background.
+    """
+    try:
+        from app.queue.jobs import process_report_with_ai
+        from app.database import get_db_url
+        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy.orm import sessionmaker
+        from app.models.report import Report
+        from sqlalchemy import select
+        from app.services.storage import storage
+        
+        # Create database session
+        db_url = get_db_url()
+        engine = create_async_engine(db_url)
+        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        
+        async with async_session() as session:
+            # Get report
+            result = await session.execute(
+                select(Report).where(Report.id == uuid.UUID(report_id))
+            )
+            report = result.scalar_one_or_none()
+            
+            if not report:
+                logger.error(f"Report {report_id} not found for reanalysis")
+                return
+            
+            # Download PDF from storage
+            if not report.source_object_key:
+                logger.error(f"No source object key for report {report_id}")
+                return
+            
+            pdf_bytes = await storage.download_file(report.source_object_key)
+            
+            # Process with AI
+            success = process_report_with_ai(report_id, use_ai=True)
+            
+            if success:
+                logger.info(f"AI reanalysis completed successfully for report {report_id}")
+            else:
+                logger.error(f"AI reanalysis failed for report {report_id}")
+                
+    except Exception as e:
+        logger.error(f"Error in background AI analysis for report {report_id}: {e}")
