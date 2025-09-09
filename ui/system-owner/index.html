@@ -246,6 +246,44 @@
     font-weight: 500;
   }
 
+  /* External APIs styling */
+  .api-status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #1a1a1a;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .api-name {
+    font-weight: 500;
+    color: #e5e7eb;
+  }
+
+  .api-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .api-status.configured {
+    background: #22c55e;
+    color: white;
+  }
+
+  .api-status.not-configured {
+    background: #6b7280;
+    color: white;
+  }
+
+  .api-status.error {
+    background: #ef4444;
+    color: white;
+  }
+
   .version-actions {
     display: flex;
     gap: 8px;
@@ -1327,6 +1365,7 @@ Tenant Details:
 
   window.onload=()=>{
     checkApiHealth();
+    loadExternalAPIsConfig(); // Load external APIs configuration
     show('Rapporten');
     
     // Add form submit handler
@@ -2260,6 +2299,171 @@ Tenant Details:
       `;
     }
   }
+
+  // External APIs Management
+  async function saveGoogleMapsConfig() {
+    const apiKey = document.getElementById('google-maps-api-key').value;
+    const enabled = document.getElementById('google-maps-enabled').checked;
+    
+    if (!apiKey && enabled) {
+      showToast('Voer een Google Maps API key in', 'error');
+      return;
+    }
+    
+    try {
+      const response = await apiCall('/admin/external-apis/google-maps', {
+        method: 'POST',
+        body: JSON.stringify({
+          api_key: apiKey,
+          enabled: enabled
+        })
+      });
+      
+      if (response.success) {
+        showToast('Google Maps configuratie opgeslagen', 'success');
+        updateAPIStatus();
+      }
+    } catch (error) {
+      console.error('Failed to save Google Maps config:', error);
+      showToast('Fout bij opslaan: ' + error.message, 'error');
+    }
+  }
+
+  async function saveBAGConfig() {
+    const apiKey = document.getElementById('bag-api-key').value;
+    const enabled = document.getElementById('bag-enabled').checked;
+    
+    try {
+      const response = await apiCall('/admin/external-apis/bag', {
+        method: 'POST',
+        body: JSON.stringify({
+          api_key: apiKey,
+          enabled: enabled
+        })
+      });
+      
+      if (response.success) {
+        showToast('BAG configuratie opgeslagen', 'success');
+        updateAPIStatus();
+      }
+    } catch (error) {
+      console.error('Failed to save BAG config:', error);
+      showToast('Fout bij opslaan: ' + error.message, 'error');
+    }
+  }
+
+  async function testGoogleMapsAPI() {
+    const apiKey = document.getElementById('google-maps-api-key').value;
+    
+    if (!apiKey) {
+      showToast('Voer eerst een API key in', 'error');
+      return;
+    }
+    
+    try {
+      showToast('Google Maps API wordt getest...', 'info');
+      
+      const response = await apiCall('/admin/external-apis/google-maps/test', {
+        method: 'POST',
+        body: JSON.stringify({
+          api_key: apiKey
+        })
+      });
+      
+      if (response.success) {
+        showToast('Google Maps API test succesvol!', 'success');
+        updateAPIStatus();
+      } else {
+        showToast('Google Maps API test mislukt: ' + response.message, 'error');
+      }
+    } catch (error) {
+      console.error('Google Maps API test failed:', error);
+      showToast('API test mislukt: ' + error.message, 'error');
+    }
+  }
+
+  async function testBAGAPI() {
+    const apiKey = document.getElementById('bag-api-key').value;
+    
+    if (!apiKey) {
+      showToast('Voer eerst een API key in', 'error');
+      return;
+    }
+    
+    try {
+      showToast('BAG API wordt getest...', 'info');
+      
+      const response = await apiCall('/admin/external-apis/bag/test', {
+        method: 'POST',
+        body: JSON.stringify({
+          api_key: apiKey
+        })
+      });
+      
+      if (response.success) {
+        showToast('BAG API test succesvol!', 'success');
+        updateAPIStatus();
+      } else {
+        showToast('BAG API test mislukt: ' + response.message, 'error');
+      }
+    } catch (error) {
+      console.error('BAG API test failed:', error);
+      showToast('API test mislukt: ' + error.message, 'error');
+    }
+  }
+
+  async function loadExternalAPIsConfig() {
+    try {
+      // Load Google Maps config
+      const googleResponse = await apiCall('/admin/external-apis/google-maps');
+      if (googleResponse.success) {
+        document.getElementById('google-maps-api-key').value = googleResponse.data.api_key || '';
+        document.getElementById('google-maps-enabled').checked = googleResponse.data.enabled || false;
+      }
+      
+      // Load BAG config
+      const bagResponse = await apiCall('/admin/external-apis/bag');
+      if (bagResponse.success) {
+        document.getElementById('bag-api-key').value = bagResponse.data.api_key || '';
+        document.getElementById('bag-enabled').checked = bagResponse.data.enabled || false;
+      }
+      
+      updateAPIStatus();
+    } catch (error) {
+      console.error('Failed to load external APIs config:', error);
+    }
+  }
+
+  async function updateAPIStatus() {
+    try {
+      const response = await apiCall('/admin/external-apis/status');
+      
+      if (response.success) {
+        const googleStatus = document.getElementById('google-maps-status');
+        const bagStatus = document.getElementById('bag-status');
+        
+        // Update Google Maps status
+        if (response.data.google_maps.configured) {
+          googleStatus.textContent = response.data.google_maps.enabled ? 'Geconfigureerd & Actief' : 'Geconfigureerd';
+          googleStatus.className = 'api-status configured';
+        } else {
+          googleStatus.textContent = 'Niet geconfigureerd';
+          googleStatus.className = 'api-status not-configured';
+        }
+        
+        // Update BAG status
+        if (response.data.bag.configured) {
+          bagStatus.textContent = response.data.bag.enabled ? 'Geconfigureerd & Actief' : 'Geconfigureerd';
+          bagStatus.className = 'api-status configured';
+        } else {
+          bagStatus.textContent = 'Niet geconfigureerd';
+          bagStatus.className = 'api-status not-configured';
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update API status:', error);
+    }
+  }
 </script>
 </head>
 <body>
@@ -2276,6 +2480,7 @@ Tenant Details:
       <a href="#" data-link="Rapporten" onclick="show('Rapporten')">Rapporten</a>
       <a href="#" data-link="Prompts" onclick="show('Prompts')">AI Prompts</a>
       <a href="#" data-link="AI-Config" onclick="show('AI-Config')">AI Configuratie</a>
+      <a href="#" data-link="External-APIs" onclick="show('External-APIs')">Externe API's</a>
       <a href="#" data-link="Profiel" onclick="show('Profiel')">Profiel</a>
     </nav>
     <nav class="nav" style="margin-top:auto">
@@ -2512,6 +2717,64 @@ Tenant Details:
             <textarea id="test-text" rows="4" placeholder="Voer test tekst in voor AI analyse..."></textarea>
             <button class="btn primary" onclick="testAIConfiguration()">Test Configuratie</button>
             <div id="test-results" style="margin-top: 16px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXTERNE API'S -->
+    <section data-view="External-APIs" style="display:none">
+      <div class="card">
+        <div class="topbar">
+          <h3>Externe API's</h3>
+        </div>
+        <p class="muted">Beheer API keys voor externe services zoals Google Maps (Street View) en BAG viewer.</p>
+      </div>
+
+      <div class="card">
+        <h4>Google Maps API</h4>
+        <p class="muted">Voor Street View foto's in conclusie PDF's</p>
+        <div class="form-group">
+          <label for="google-maps-api-key">Google Maps API Key</label>
+          <input type="password" id="google-maps-api-key" placeholder="AIza...">
+          <small class="muted">Vereist: Street View Static API enabled</small>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="google-maps-enabled"> Street View foto's inschakelen
+          </label>
+        </div>
+        <button class="btn primary" onclick="saveGoogleMapsConfig()">Opslaan</button>
+        <button class="btn" onclick="testGoogleMapsAPI()">Test API</button>
+      </div>
+
+      <div class="card">
+        <h4>BAG Viewer API</h4>
+        <p class="muted">Voor pandgegevens in conclusie PDF's</p>
+        <div class="form-group">
+          <label for="bag-api-key">BAG API Key</label>
+          <input type="password" id="bag-api-key" placeholder="Uw BAG API key...">
+          <small class="muted">Optioneel: Voor automatische pandgegevens</small>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="bag-enabled"> BAG gegevens inschakelen
+          </label>
+        </div>
+        <button class="btn primary" onclick="saveBAGConfig()">Opslaan</button>
+        <button class="btn" onclick="testBAGAPI()">Test API</button>
+      </div>
+
+      <div class="card">
+        <h4>API Status</h4>
+        <div id="api-status-list">
+          <div class="api-status-item">
+            <span class="api-name">Google Maps</span>
+            <span class="api-status" id="google-maps-status">Niet geconfigureerd</span>
+          </div>
+          <div class="api-status-item">
+            <span class="api-name">BAG Viewer</span>
+            <span class="api-status" id="bag-status">Niet geconfigureerd</span>
           </div>
         </div>
       </div>
