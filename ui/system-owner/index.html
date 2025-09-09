@@ -67,9 +67,9 @@
   .modal-content {
     background: var(--bg);
     border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
-    max-height: 90vh;
+    width: 95%;
+    max-width: 800px;
+    max-height: 95vh;
     overflow-y: auto;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   }
@@ -136,6 +136,13 @@
   .form-group textarea {
     resize: vertical;
     min-height: 100px;
+  }
+  
+  #prompt-content {
+    min-height: 400px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.4;
   }
 
   /* Version History Styles */
@@ -2356,7 +2363,7 @@ Tenant Details:
             
             <div class="form-group">
               <label for="prompt-content">Prompt Content *</label>
-              <textarea id="prompt-content" name="content" rows="10" required 
+              <textarea id="prompt-content" name="content" rows="20" required 
                         placeholder="Voer hier de prompt content in..."></textarea>
             </div>
             

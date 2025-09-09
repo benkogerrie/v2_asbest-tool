@@ -41,7 +41,7 @@ async def test_ai_config_api():
                 "name": "Test Anthropic Config",
                 "provider": "anthropic",
                 "model": "claude-3-5-haiku-20241022",
-                "api_key": "YOUR_API_KEY_HERE"  # Replace with actual API key for testing
+                "api_key": "sk-ant-api03-PLACEHOLDER-API-KEY-HERE"
             }
             
             response = await client.post(

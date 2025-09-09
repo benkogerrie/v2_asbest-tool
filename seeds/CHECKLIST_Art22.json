@@ -1,0 +1,118 @@
+{
+  "article": "22",
+  "name": "Asbestinventarisatierapport – verplichte onderdelen",
+  "items": [
+    {
+      "code": "A22.META",
+      "title": "Titelblad & metadata",
+      "requirement": "Rapporttitel, opdrachtgever, projectnummer, objectlocatie/adres, rapportdatum, versienummer en opsteller.",
+      "category": "FORMAL",
+      "severity_default": "HIGH",
+      "evidence_hint": "Voorblad, colofon of eerste pagina met projectgegevens."
+    },
+    {
+      "code": "A22.SCOPE",
+      "title": "Reikwijdte / onderzoeksomvang",
+      "requirement": "Duidelijke scope van de inventarisatie (wel/niet onderzocht, grenzen en doel).",
+      "category": "FORMAL",
+      "severity_default": "HIGH",
+      "evidence_hint": "Paragraaf 'Scope', 'Onderzoeksomvang' of 'Doel'."
+    },
+    {
+      "code": "A22.METHOD",
+      "title": "Methodiek & uitvoering",
+      "requirement": "Beschrijving van toegepaste inventarisatiemethode(n), inspectieniveau, gebruikte middelen en eventuele beperkingen.",
+      "category": "CONTENT",
+      "severity_default": "MEDIUM",
+      "evidence_hint": "Paragraaf 'Methode', 'Werkwijze', 'Beperkingen'."
+    },
+    {
+      "code": "A22.ACCESS_LIMITS",
+      "title": "Toegankelijkheid & beperkingen",
+      "requirement": "Expliciet benoemen van niet-toegankelijke delen en consequenties voor volledigheid.",
+      "category": "CONTENT",
+      "severity_default": "HIGH",
+      "evidence_hint": "Tekst over gesloten ruimtes/constructies, ontoegankelijke zones."
+    },
+    {
+      "code": "A22.ID_FINDINGS",
+      "title": "Identificatie asbest(bron)nen",
+      "requirement": "Overzicht van (vermoede) asbesthoudende materialen, inclusief soort/verdacht, waarneembaarheid en staat.",
+      "category": "CONTENT",
+      "severity_default": "CRITICAL",
+      "evidence_hint": "Resultatenhoofdstuk met per locatie/component een item."
+    },
+    {
+      "code": "A22.LOC_QTY",
+      "title": "Locaties & hoeveelheden",
+      "requirement": "Per aangetroffen materiaal: exacte locatie, omvang/hoeveelheid of schatting en afbakening.",
+      "category": "CONTENT",
+      "severity_default": "HIGH",
+      "evidence_hint": "Tabel of lijst per ruimte/zone met m²/m¹/stuks."
+    },
+    {
+      "code": "A22.SAMPLES_LAB",
+      "title": "Monsters & analyseresultaten",
+      "requirement": "Monsterpunten, labcodes, analysemethode en uitslagen per materiaal (indien bemonsterd).",
+      "category": "CONTENT",
+      "severity_default": "CRITICAL",
+      "evidence_hint": "Bijlage met labrapporten en verwijzing in hoofdtekst."
+    },
+    {
+      "code": "A22.PHOTOS_DRAWINGS",
+      "title": "Foto's en tekeningen",
+      "requirement": "Relevante foto's met bijschrift en (indien beschikbaar) plattegronden/tekeningen met markeringen.",
+      "category": "CONTENT",
+      "severity_default": "MEDIUM",
+      "evidence_hint": "Fotobijlage en/of gemarkeerde plattegrond."
+    },
+    {
+      "code": "A22.CONDITION_RISK",
+      "title": "Materiaalconditie & risico-inschatting",
+      "requirement": "Beoordeling van staat/beschadiging en implicaties voor risico (zonder externe normcitaties).",
+      "category": "RISK",
+      "severity_default": "HIGH",
+      "evidence_hint": "Tekst of tabel met conditie/risico per item."
+    },
+    {
+      "code": "A22.RECOMMENDATIONS",
+      "title": "Aanbevelingen vervolgstappen",
+      "requirement": "Concrete vervolgacties (bijv. verwijderen, afschermen, monitoring) passend bij bevindingen.",
+      "category": "RISK",
+      "severity_default": "MEDIUM",
+      "evidence_hint": "Paragraaf 'Aanbevelingen' of 'Conclusies'."
+    },
+    {
+      "code": "A22.SUITABILITY",
+      "title": "Geschiktheid voor vervolg (verwijdering/werkvoorbereiding)",
+      "requirement": "Toelichting of rapport voldoende is voor vervolgactiviteiten (zodat uitvoerbare scope duidelijk is).",
+      "category": "FORMAL",
+      "severity_default": "MEDIUM",
+      "evidence_hint": "Slothoofdstuk of managementsamenvatting."
+    },
+    {
+      "code": "A22.ASSUMPTIONS",
+      "title": "Aannames en onzekerheden",
+      "requirement": "Expliciet maken van aannames, onzekerheden en de impact op conclusies.",
+      "category": "CONSISTENCY",
+      "severity_default": "MEDIUM",
+      "evidence_hint": "Paragraaf 'Aannames/Onzekerheden/Beperkingen'."
+    },
+    {
+      "code": "A22.VERSION_SIGN",
+      "title": "Versiebeheer & ondertekening",
+      "requirement": "Versienummer/wijzigingen en ondertekening met naam/functie/datum.",
+      "category": "ADMIN",
+      "severity_default": "HIGH",
+      "evidence_hint": "Voorblad/laatste pagina met handtekening of digitale accordering."
+    },
+    {
+      "code": "A22.APPENDICES",
+      "title": "Bijlagen en verwijzingen",
+      "requirement": "Aanwezige bijlagen correct verwezen in rapport (labrapporten, fotobijlagen, plattegronden).",
+      "category": "ADMIN",
+      "severity_default": "LOW",
+      "evidence_hint": "Bijlagenlijst + kruisverwijzingen in tekst."
+    }
+  ]
+}
