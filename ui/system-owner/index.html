@@ -506,7 +506,7 @@
       showToast('Heranalyse gestart...', 'info');
       
       // Call the reanalyze endpoint
-      const response = await apiCall(`/reports/${reportId}/reanalyze`, {
+      const response = await apiCall(`/reports/${reportId}/reanalyze/`, {
         method: 'POST'
       });
       
