@@ -21,6 +21,7 @@ from app.services.storage import storage
 from app.services.prompt_service import PromptService
 from app.services.llm_service import LLMService
 from app.services.analyzer.text_extraction import extract_text_from_pdf
+from app.services.pdf_generator import generate_conclusion_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,67 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                     report.status = ReportStatus.DONE
                     report.updated_at = datetime.now(timezone.utc)
 
+                # Generate conclusion PDF
+                try:
+                    logger.info(f"Generating conclusion PDF for report {report_id}")
+                    
+                    # Prepare report metadata
+                    report_meta = {
+                        "Opdrachtgever": report.uploaded_by_user.name if report.uploaded_by_user else "Onbekend",
+                        "Projectnummer": report.filename,  # Use filename as project number for now
+                        "Objectlocatie": "Te bepalen",  # Could be extracted from PDF content
+                        "Rapportdatum": report.uploaded_at.strftime("%Y-%m-%d"),
+                        "Versie": "1.0",
+                        "Opsteller": "AI Analyse Systeem"
+                    }
+                    
+                    # Convert AI output to dict for PDF generator
+                    ai_analysis_dict = {
+                        "report_summary": ai_output.report_summary,
+                        "score": ai_output.score,
+                        "findings": [
+                            {
+                                "code": f.code,
+                                "title": f.title,
+                                "status": f.status,
+                                "severity": f.severity,
+                                "evidence_snippet": f.evidence_snippet
+                            }
+                            for f in ai_output.findings
+                        ]
+                    }
+                    
+                    # Generate PDF
+                    temp_pdf_path = f"/tmp/conclusion_{report_id}.pdf"
+                    generate_conclusion_pdf(
+                        output_path=temp_pdf_path,
+                        report_meta=report_meta,
+                        ai_analysis=ai_analysis_dict,
+                        bag_data=None,  # Could be added later
+                        streetview_path=None  # Could be added later
+                    )
+                    
+                    # Upload PDF to storage
+                    with open(temp_pdf_path, 'rb') as pdf_file:
+                        conclusion_key = f"tenants/{tenant_id}/reports/{report_id}/conclusion/conclusion.pdf"
+                        await storage.upload_file(
+                            key=conclusion_key,
+                            file_obj=pdf_file,
+                            content_type="application/pdf"
+                        )
+                    
+                    # Update report with conclusion key
+                    report.conclusion_object_key = conclusion_key
+                    
+                    # Cleanup temp PDF
+                    Path(temp_pdf_path).unlink(missing_ok=True)
+                    
+                    logger.info(f"Conclusion PDF generated and uploaded for report {report_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to generate conclusion PDF for report {report_id}: {e}")
+                    # Don't fail the entire process if PDF generation fails
+                
                 await session.commit()
 
                 # Log analysis completion
