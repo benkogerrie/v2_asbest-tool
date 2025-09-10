@@ -127,6 +127,16 @@ async def create_user(
                 detail="Invalid tenant_id format"
             )
     
+    # Check if user with this email already exists
+    existing_user = await session.execute(
+        select(User).where(User.email == user_data.email)
+    )
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this email already exists"
+        )
+    
     # Create user directly in database (alternative to FastAPI Users)
     from passlib.context import CryptContext
     import uuid
