@@ -493,8 +493,63 @@
     document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
   }
   
-  function confirmDelete(){alert('Rapport verwijderd (soft-delete).');}
-  function confirmRestore(){alert('Rapport hersteld.');}
+  async function confirmDelete(reportId) {
+    if (!confirm('Weet je zeker dat je dit rapport wilt verwijderen? Het wordt verborgen voor de tenant maar blijft bewaard.')) {
+      return;
+    }
+    
+    try {
+      showToast('Rapport wordt verwijderd...', 'info');
+      
+      const response = await apiCall(`/reports/${reportId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.message) {
+        showToast('Rapport succesvol verwijderd!', 'success');
+        
+        // Refresh the reports list to show updated status
+        setTimeout(() => {
+          loadReports();
+        }, 1000);
+      } else {
+        throw new Error(response.message || 'Verwijderen mislukt');
+      }
+      
+    } catch (error) {
+      console.error('Delete failed:', error);
+      showToast('Verwijderen mislukt: ' + (error.message || 'Onbekende fout'), 'error');
+    }
+  }
+  
+  async function confirmRestore(reportId) {
+    if (!confirm('Weet je zeker dat je dit rapport wilt herstellen? Het wordt weer zichtbaar voor de tenant.')) {
+      return;
+    }
+    
+    try {
+      showToast('Rapport wordt hersteld...', 'info');
+      
+      const response = await apiCall(`/reports/${reportId}/restore`, {
+        method: 'POST'
+      });
+      
+      if (response.message) {
+        showToast('Rapport succesvol hersteld!', 'success');
+        
+        // Refresh the reports list to show updated status
+        setTimeout(() => {
+          loadReports();
+        }, 1000);
+      } else {
+        throw new Error(response.message || 'Herstel mislukt');
+      }
+      
+    } catch (error) {
+      console.error('Restore failed:', error);
+      showToast('Herstel mislukt: ' + (error.message || 'Onbekende fout'), 'error');
+    }
+  }
   
   // Reanalyze report with AI
   async function reanalyzeReport(reportId) {
@@ -743,8 +798,8 @@
           <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
           <button class="icon-btn" title="Heranalyseer met AI" onclick="reanalyzeReport('${report.id}')" ${report.status === 'PROCESSING' ? 'disabled' : ''}>🔄</button>
           ${report.status === 'DELETED_SOFT' ? 
-            '<button class="icon-btn" title="Herstel" onclick="confirmRestore()">♻️</button>' : 
-            '<button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>'
+            `<button class="icon-btn" title="Herstel" onclick="confirmRestore('${report.id}')">♻️</button>` : 
+            `<button class="icon-btn" title="Verwijder" onclick="confirmDelete('${report.id}')">🗑️</button>`
           }
         </td>
       </tr>

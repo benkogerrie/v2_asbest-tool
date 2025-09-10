@@ -806,6 +806,7 @@ async def soft_delete_report(
     try:
         # Soft delete the report
         report.deleted_at = datetime.utcnow()
+        report.status = ReportStatus.DELETED_SOFT
         session.add(report)
         
         # Create audit log
@@ -830,6 +831,91 @@ async def soft_delete_report(
         raise HTTPException(
             status_code=500,
             detail="Failed to delete report"
+        )
+
+
+@router.post("/{report_id}/restore")
+async def restore_report(
+    report_id: str,
+    current_user: User = Depends(get_current_admin_or_system_owner),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Restore a soft-deleted report.
+    
+    This can only be done by SYSTEM_OWNER or ADMIN users.
+    Regular users cannot restore reports.
+    """
+    from app.services.reports import ReportService
+    
+    # Validate report_id format
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid report_id format"
+        )
+    
+    # Get report - SYSTEM_OWNER can restore any report, ADMIN only their tenant's reports
+    if current_user.role == UserRole.SYSTEM_OWNER:
+        result = await session.execute(
+            select(Report).where(Report.id == report_id)
+        )
+        report = result.scalar_one_or_none()
+    else:
+        # ADMIN can only restore reports from their own tenant
+        result = await session.execute(
+            select(Report).where(
+                and_(
+                    Report.id == report_id,
+                    Report.tenant_id == current_user.tenant_id
+                )
+            )
+        )
+        report = result.scalar_one_or_none()
+    
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or access denied"
+        )
+    
+    # Check if report is actually soft-deleted
+    if not report.deleted_at or report.status != ReportStatus.DELETED_SOFT:
+        raise HTTPException(
+            status_code=400,
+            detail="Report is not soft-deleted"
+        )
+    
+    try:
+        # Restore the report
+        report.deleted_at = None
+        report.status = ReportStatus.DONE  # Restore to DONE status
+        session.add(report)
+        
+        # Create audit log
+        audit_log = ReportAuditLog(
+            report_id=report.id,
+            actor_user_id=current_user.id,
+            action=AuditAction.RESTORE,
+            note=f"Report restored by {current_user.email}"
+        )
+        session.add(audit_log)
+        await session.commit()
+        
+        logger.info(f"Report {report_id} restored by user {current_user.id}")
+        
+        return {
+            "message": "Report restored successfully",
+            "restored_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error restoring report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to restore report"
         )
 
 
