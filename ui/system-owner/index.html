@@ -534,7 +534,7 @@
       if (response) {
         console.log('Tenants loaded:', response);
         updateTenantsTable(response);
-        return tenants;
+        return response;
       }
     } catch (error) {
       console.error('Failed to load tenants:', error);
@@ -549,8 +549,8 @@
       if (response) {
         console.log('Users loaded:', response);
         updateUsersTable(response);
-        loadTenantsForUserFilter(users);
-        return users;
+        loadTenantsForUserFilter(response);
+        return response;
       } else {
         console.error('Failed to load users:', response.status, response.statusText);
       }
@@ -579,7 +579,7 @@
       if (response) {
         console.log('Reports loaded:', response);
         updateReportsTable(response.items || []);
-        return data.items || [];
+        return response.items || [];
       }
     } catch (error) {
       console.error('Failed to load reports:', error);

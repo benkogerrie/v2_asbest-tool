@@ -106,3 +106,4 @@ if __name__ == "__main__":
         print(f"   {content[:200]}...")
     else:
         print("   ❌ Art.22 prompt file not found!")
+

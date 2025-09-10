@@ -104,3 +104,4 @@ Gebruik de volgende checklist (uitsluitend Art.22):
 ```
 
 **BELANGRIJK**: Produceer alleen geldige JSON. Geen uitleg of extra tekst buiten de JSON structuur.
+

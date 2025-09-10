@@ -271,3 +271,4 @@ def generate_conclusion_pdf(
     )
     
     return output_path
+

@@ -228,3 +228,4 @@ async def get_api_status(
     except Exception as e:
         logger.error(f"Error getting API status: {e}")
         raise HTTPException(status_code=500, detail="Failed to get API status")
+

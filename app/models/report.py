@@ -30,6 +30,7 @@ class AuditAction(str, Enum):
     REPORT_DOWNLOAD = "REPORT_DOWNLOAD"
     NOTIFICATION_SENT = "NOTIFICATION_SENT"
     REPORT_PURGE = "REPORT_PURGE"
+    REANALYZE = "REANALYZE"
 
 
 class Report(Base):
