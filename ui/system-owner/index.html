@@ -1204,6 +1204,7 @@
           first_name: document.getElementById('user-first-name').value,
           last_name: document.getElementById('user-last-name').value,
           email: document.getElementById('user-email').value,
+          password: document.getElementById('user-password').value,
           role: document.getElementById('user-role').value,
           tenant_id: document.getElementById('user-tenant').value,
           phone: document.getElementById('user-phone').value,
@@ -3022,9 +3023,15 @@ Tenant Details:
               </div>
             </div>
             
-            <div style="margin-bottom:12px">
-              <label>Medewerker ID</label>
-              <input type="text" id="user-employee-id">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label>Medewerker ID</label>
+                <input type="text" id="user-employee-id">
+              </div>
+              <div>
+                <label>Tijdelijk wachtwoord *</label>
+                <input type="password" id="user-password" required placeholder="Minimaal 8 karakters">
+              </div>
             </div>
             
             <div style="display:flex;gap:8px">
