@@ -33,6 +33,7 @@ class UserUpdate(BaseModel):
     job_title: Optional[str] = None
     employee_id: Optional[str] = None
     is_active: Optional[bool] = None
+    password: Optional[str] = None
 
 
 class UserRead(UserBase):

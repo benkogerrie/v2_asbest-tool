@@ -254,12 +254,45 @@ async def update_user(
     
     # Update user
     update_data = user_data.model_dump(exclude_unset=True)
+    
+    # Handle password hashing if password is provided
+    if 'password' in update_data:
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        update_data['hashed_password'] = pwd_context.hash(update_data['password'])
+        del update_data['password']  # Remove plain password
+    
     for field, value in update_data.items():
         setattr(user, field, value)
     
     await session.commit()
     await session.refresh(user)
-    return user
+    
+    # Return user with tenant_name like other endpoints
+    result = await session.execute(
+        select(Tenant.name.label('tenant_name'))
+        .where(Tenant.id == user.tenant_id)
+    )
+    tenant_name = result.scalar_one_or_none()
+    
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "role": user.role,
+        "tenant_id": user.tenant_id,
+        "tenant_name": tenant_name,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+        "is_verified": user.is_verified,
+        "created_at": user.created_at,
+        "phone": user.phone,
+        "department": user.department,
+        "job_title": user.job_title,
+        "employee_id": user.employee_id
+    }
+    return user_dict
 
 
 @router.delete("/{user_id}")
