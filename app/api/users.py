@@ -127,11 +127,36 @@ async def create_user(
                 detail="Invalid tenant_id format"
             )
     
-    # Create user using FastAPI Users
-    from app.auth.auth import get_user_manager
-    user_manager = await anext(get_user_manager(session))
+    # Create user directly in database (alternative to FastAPI Users)
+    from passlib.context import CryptContext
+    import uuid
+    from datetime import datetime
     
-    user = await user_manager.create(user_data)
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    
+    # Create user object
+    user = User(
+        id=uuid.uuid4(),
+        email=user_data.email,
+        hashed_password=pwd_context.hash(user_data.password),
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        role=user_data.role,
+        tenant_id=user_data.tenant_id,
+        phone=user_data.phone,
+        department=user_data.department,
+        job_title=user_data.job_title,
+        employee_id=user_data.employee_id,
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
+        created_at=datetime.utcnow()
+    )
+    
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    
     return user
 
 
