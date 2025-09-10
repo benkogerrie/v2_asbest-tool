@@ -223,7 +223,7 @@
           <button class="icon-btn" title="Bekijk" onclick="showReportDetail('${report.id}')">👁</button>
           <button class="icon-btn" title="Download rapport">⬇️</button>
           <button class="icon-btn" title="Download conclusie & aanbevelingen (PDF)">📝</button>
-          <button class="icon-btn" title="Verwijder" onclick="confirmDelete()">🗑️</button>
+          <button class="icon-btn" title="Verwijder" onclick="confirmDelete('${report.id}')">🗑️</button>
         </td>
       </tr>
     `).join('');
@@ -511,9 +511,27 @@
     }
   }
 
-  function confirmDelete(){
-    if(confirm('Weet je zeker dat je dit rapport wilt verwijderen?')){
-      alert('Rapport verwijderd');
+  async function confirmDelete(reportId) {
+    if (!confirm('Weet je zeker dat je dit rapport wilt verwijderen? Dit rapport wordt verwijderd uit je projectenlijst.')) {
+      return;
+    }
+    
+    try {
+      const response = await apiCall(`/reports/${reportId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response) {
+        alert('✅ Rapport succesvol verwijderd uit je projectenlijst');
+        // Refresh the reports list
+        loadReports();
+      } else {
+        throw new Error('Verwijderen mislukt');
+      }
+      
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('❌ Verwijderen mislukt: ' + (error.message || 'Onbekende fout'));
     }
   }
 
