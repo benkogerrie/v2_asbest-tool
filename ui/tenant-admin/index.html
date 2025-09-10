@@ -541,6 +541,41 @@
     }
   }
 
+  // Load users from database
+  async function loadUsers() {
+    try {
+      const response = await apiCall('/users/');
+      if (response) {
+        console.log('Users loaded:', response);
+        updateUsersTable(response);
+        return response;
+      }
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    }
+    return [];
+  }
+
+  // Update users table with real data
+  function updateUsersTable(users) {
+    const tbody = document.querySelector('#users-table tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = users.map(user => `
+      <tr>
+        <td>${user.first_name || '-'}</td>
+        <td>${user.last_name || '-'}</td>
+        <td>${user.email || '-'}</td>
+        <td>${user.role || '-'}</td>
+        <td><span class="chip ${user.is_active ? 'ok' : 'bad'}">${user.is_active ? 'Actief' : 'Inactief'}</span></td>
+        <td>
+          <button class="icon-btn" title="Deactiveer" onclick="toggleUserStatus('${user.id}', ${!user.is_active})">${user.is_active ? '🚫' : '✅'}</button>
+          <button class="icon-btn" title="Reset wachtwoord" onclick="resetUserPassword('${user.id}')">🔐</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
   // User creation functionality
   document.addEventListener('DOMContentLoaded', function() {
     const userForm = document.getElementById('user-creation-form');
@@ -569,6 +604,8 @@
           if (response) {
             alert('✅ Gebruiker succesvol aangemaakt!');
             userForm.reset();
+            // Refresh users list
+            loadUsers();
           } else {
             alert('❌ Fout bij aanmaken van gebruiker');
           }
@@ -665,6 +702,11 @@
     document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
     const tabBtn = document.querySelector(`[data-tab="${tab}"]`);
     if(tabBtn) tabBtn.classList.add('active');
+    
+    // Load data when switching to users tab
+    if (tab === 'gebruikers') {
+      loadUsers();
+    }
   }
 </script>
 </head>
@@ -842,22 +884,13 @@
 
         <div class="card">
           <h3>Gebruikers</h3>
-          <table>
-            <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Status</th><th>Acties</th></tr>
-            <tr>
-              <td>Jan</td><td>de Vries</td><td>jan@gemeente-x.nl</td><td>Admin</td><td><span class="chip ok">Actief</span></td>
-              <td>
-                <button class="icon-btn" title="Deactiveer">🚫</button>
-                <button class="icon-btn" title="Reset wachtwoord">🔐</button>
-              </td>
-            </tr>
-            <tr>
-              <td>Sara</td><td>Bakker</td><td>s.bakker@gemeente-x.nl</td><td>User</td><td><span class="chip ok">Actief</span></td>
-              <td>
-                <button class="icon-btn" title="Maak Admin">⭐</button>
-                <button class="icon-btn" title="Deactiveer">🚫</button>
-              </td>
-            </tr>
+          <table id="users-table">
+            <thead>
+              <tr><th>Voornaam</th><th>Achternaam</th><th>Email</th><th>Rol</th><th>Status</th><th>Acties</th></tr>
+            </thead>
+            <tbody>
+              <!-- Dynamically populated -->
+            </tbody>
           </table>
         </div>
       </div>
