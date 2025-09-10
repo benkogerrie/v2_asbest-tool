@@ -490,10 +490,22 @@
   }
 
   // Confirm delete
-  function confirmDelete(reportId) {
-    if (confirm('Weet je zeker dat je dit rapport wilt verwijderen?')) {
-      // TODO: Implement delete functionality
-      alert('Verwijderen nog niet geïmplementeerd');
+  async function confirmDelete(reportId) {
+    try {
+      const response = await apiCall(`/reports/${reportId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response) {
+        // Refresh the reports list
+        loadReports();
+      } else {
+        throw new Error('Verwijderen mislukt');
+      }
+      
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('❌ Verwijderen mislukt: ' + (error.message || 'Onbekende fout'));
     }
   }
 
@@ -607,11 +619,6 @@
     }, 200);
   }
 
-  function confirmDelete(){
-    if(confirm('Weet je zeker dat je dit rapport wilt verwijderen?')){
-      alert('Rapport verwijderd');
-    }
-  }
 
   // Logout functionaliteit
   function logout() {
