@@ -99,7 +99,8 @@ async def create_user(
         pass
     else:
         # Tenant admin can only create users in their own tenant
-        if user_data.tenant_id != current_user.tenant_id:
+        # If tenant_id is not provided, it will be set automatically below
+        if user_data.tenant_id and user_data.tenant_id != current_user.tenant_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Can only create users in your own tenant"
@@ -114,6 +115,17 @@ async def create_user(
     # For tenant admins, automatically set tenant_id if not provided
     if current_user.role == UserRole.ADMIN and not user_data.tenant_id:
         user_data.tenant_id = current_user.tenant_id
+    
+    # Convert tenant_id string to UUID if provided
+    if user_data.tenant_id and isinstance(user_data.tenant_id, str):
+        import uuid
+        try:
+            user_data.tenant_id = uuid.UUID(user_data.tenant_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid tenant_id format"
+            )
     
     # Create user using FastAPI Users
     from app.auth.auth import get_user_manager
