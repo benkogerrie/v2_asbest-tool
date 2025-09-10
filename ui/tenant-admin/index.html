@@ -95,16 +95,27 @@
     
     try {
       const response = await fetch(url, config);
+      
+      // Log response for debugging
+      console.log(`API Call: ${endpoint} - Status: ${response.status}`);
+      
       if (response.status === 401) {
         // Unauthorized - redirect to login
+        console.log('401 Unauthorized - redirecting to login');
         localStorage.removeItem('asbest_jwt');
         window.location.href = '/auth';
-        return;
+        return null;
       }
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error: ${response.status} - ${errorText}`);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      return await response.json();
+      
+      const data = await response.json();
+      console.log(`API Response:`, data);
+      return data;
     } catch (error) {
       console.error('API Error:', error);
       throw error;
@@ -569,6 +580,7 @@
         <td>${user.role || '-'}</td>
         <td><span class="chip ${user.is_active ? 'ok' : 'bad'}">${user.is_active ? 'Actief' : 'Inactief'}</span></td>
         <td>
+          <button class="icon-btn" title="Bekijk details" onclick="showUserDetail('${user.id}')">👁</button>
           <button class="icon-btn" title="Deactiveer" onclick="toggleUserStatus('${user.id}', ${!user.is_active})">${user.is_active ? '🚫' : '✅'}</button>
           <button class="icon-btn" title="Reset wachtwoord" onclick="resetUserPassword('${user.id}')">🔐</button>
         </td>
@@ -892,6 +904,19 @@
               <!-- Dynamically populated -->
             </tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- USER DETAIL -->
+    <section data-view="UserDetail" style="display:none">
+      <div class="card">
+        <h3>Gebruiker Details</h3>
+        <div id="user-detail-content">
+          <!-- Dynamically populated -->
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn" onclick="show('Admin')">← Terug naar Gebruikers</button>
         </div>
       </div>
     </section>
