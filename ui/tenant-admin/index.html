@@ -548,20 +548,13 @@
       userForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        // Get current user info to get tenant_id
-        const currentUser = await getCurrentUserInfo();
-        if (!currentUser) {
-          alert('❌ Kan huidige gebruiker informatie niet ophalen');
-          return;
-        }
-        
         const formData = {
           first_name: document.getElementById('new-user-first-name').value,
           last_name: document.getElementById('new-user-last-name').value,
           email: document.getElementById('new-user-email').value,
           password: document.getElementById('new-user-password').value,
-          role: document.getElementById('new-user-role').value,
-          tenant_id: currentUser.tenant_id // Use current user's tenant_id
+          role: document.getElementById('new-user-role').value
+          // tenant_id will be automatically set by backend based on current user
         };
         
         try {

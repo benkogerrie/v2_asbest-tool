@@ -111,6 +111,10 @@ async def create_user(
                 detail="Cannot create system owners"
             )
     
+    # For tenant admins, automatically set tenant_id if not provided
+    if current_user.role == UserRole.ADMIN and not user_data.tenant_id:
+        user_data.tenant_id = current_user.tenant_id
+    
     # Create user using FastAPI Users
     from app.auth.auth import get_user_manager
     user_manager = await anext(get_user_manager(session))
