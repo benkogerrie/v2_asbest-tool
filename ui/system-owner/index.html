@@ -868,16 +868,15 @@
   async function loadAnalysisAndFindings(reportId) {
     try {
       // Load analysis data
-      const analysisResponse = await apiCall(`/analyses/reports/${reportId}/analysis`);
-      if (analysisResponse && analysisResponse.ok) {
-        const analysis = await analysisResponse.json();
+      const analysis = await apiCall(`/analyses/reports/${reportId}/analysis`);
+      if (analysis) {
         updateAnalysisView(analysis);
       }
       
       // Load findings data
-      const findings = await apiCall(`/findings/reports/${reportId}/findings`);
-      if (findings && Array.isArray(findings)) {
-        updateFindingsView(findings);
+      const findingsData = await apiCall(`/findings/reports/${reportId}/findings`);
+      if (findingsData && findingsData.findings && Array.isArray(findingsData.findings)) {
+        updateFindingsView(findingsData.findings);
       }
     } catch (error) {
       console.error('Error loading analysis and findings:', error);
