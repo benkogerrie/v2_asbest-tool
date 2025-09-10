@@ -99,9 +99,9 @@
       // Log response for debugging
       console.log(`API Call: ${endpoint} - Status: ${response.status}`);
       
-      if (response.status === 401) {
-        // Unauthorized - redirect to login
-        console.log('401 Unauthorized - redirecting to login');
+      if (response.status === 401 || response.status === 403) {
+        // Unauthorized or Forbidden - redirect to login
+        console.log(`${response.status} Unauthorized/Forbidden - redirecting to login`);
         localStorage.removeItem('asbest_jwt');
         window.location.href = '/auth';
         return null;
