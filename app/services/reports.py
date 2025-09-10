@@ -87,9 +87,19 @@ class ReportService:
                 )
             )
         
-        # Apply status filter
+        # Apply status filter (but respect RBAC filtering)
         if status:
-            query = query.where(Report.status == status)
+            if current_user.role == UserRole.SYSTEM_OWNER:
+                # SYSTEM_OWNER can filter by any status
+                query = query.where(Report.status == status)
+            else:
+                # USER/ADMIN can filter by status, but still exclude soft-deleted
+                query = query.where(
+                    and_(
+                        Report.status == status,
+                        Report.status != ReportStatus.DELETED_SOFT
+                    )
+                )
         
         # Apply search filter
         if q:
@@ -111,7 +121,17 @@ class ReportService:
             )
         
         if status:
-            count_query = count_query.where(Report.status == status)
+            if current_user.role == UserRole.SYSTEM_OWNER:
+                # SYSTEM_OWNER can filter by any status
+                count_query = count_query.where(Report.status == status)
+            else:
+                # USER/ADMIN can filter by status, but still exclude soft-deleted
+                count_query = count_query.where(
+                    and_(
+                        Report.status == status,
+                        Report.status != ReportStatus.DELETED_SOFT
+                    )
+                )
         
         if q:
             count_query = count_query.where(Report.filename.ilike(f"%{q}%"))
