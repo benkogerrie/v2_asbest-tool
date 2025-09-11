@@ -995,3 +995,145 @@ async def reanalyze_report(
             status_code=500,
             detail="Failed to start reanalysis"
         )
+
+
+@router.get("/{report_id}/ai-findings")
+async def download_ai_findings(
+    report_id: str,
+    current_user: User = Depends(get_current_admin_or_system_owner),
+    session: AsyncSession = Depends(get_db)
+):
+    """Download AI findings PDF for a report."""
+    try:
+        # Get the report
+        result = await session.execute(
+            select(Report).where(Report.id == report_id)
+        )
+        report = result.scalar_one_or_none()
+        
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail="Report not found"
+            )
+        
+        if report.deleted_at:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot download findings for deleted report"
+            )
+        
+        # Check if report has AI analysis
+        if not report.conclusion_object_key:
+            raise HTTPException(
+                status_code=404,
+                detail="AI findings PDF not available yet"
+            )
+        
+        # Download PDF from storage
+        try:
+            pdf_data = storage.download_file(report.conclusion_object_key)
+            if not pdf_data:
+                raise HTTPException(
+                    status_code=404,
+                    detail="AI findings PDF not found in storage"
+                )
+            
+            return Response(
+                content=pdf_data,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename=ai_findings_{report_id}.pdf"
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to download AI findings PDF for report {report_id}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to download AI findings PDF"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading AI findings for report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to download AI findings"
+        )
+
+
+@router.get("/{report_id}/debug-ai-data")
+async def debug_ai_data(
+    report_id: str,
+    current_user: User = Depends(get_current_admin_or_system_owner),
+    session: AsyncSession = Depends(get_db)
+):
+    """Debug endpoint to check AI analysis data in database."""
+    try:
+        # Get the report
+        result = await session.execute(
+            select(Report).where(Report.id == report_id)
+        )
+        report = result.scalar_one_or_none()
+        
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail="Report not found"
+            )
+        
+        # Get analysis data
+        from app.models.analysis import Analysis
+        from app.models.finding import Finding
+        
+        analysis_result = await session.execute(
+            select(Analysis).where(Analysis.report_id == report_id).order_by(Analysis.finished_at.desc())
+        )
+        analysis = analysis_result.scalar_one_or_none()
+        
+        findings = []
+        if analysis:
+            findings_result = await session.execute(
+                select(Finding).where(Finding.analysis_id == analysis.id)
+            )
+            findings = findings_result.scalars().all()
+        
+        return {
+            "report": {
+                "id": str(report.id),
+                "status": report.status,
+                "score": report.score,
+                "finding_count": report.finding_count,
+                "summary": report.summary,
+                "conclusion_object_key": report.conclusion_object_key
+            },
+            "analysis": {
+                "id": str(analysis.id) if analysis else None,
+                "engine": analysis.engine if analysis else None,
+                "score": analysis.score if analysis else None,
+                "summary": analysis.summary if analysis else None,
+                "created_at": analysis.finished_at.isoformat() if analysis else None
+            } if analysis else None,
+            "findings_count": len(findings),
+            "findings": [
+                {
+                    "id": str(f.id),
+                    "rule_id": f.rule_id,
+                    "severity": f.severity,
+                    "message": f.message,
+                    "suggestion": f.suggestion
+                }
+                for f in findings
+            ]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error debugging AI data for report {report_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to debug AI data"
+        )

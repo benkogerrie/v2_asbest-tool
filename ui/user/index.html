@@ -403,6 +403,24 @@
       downloadBtn.disabled = report.status !== 'DONE';
     }
     
+    // Add AI findings download button if analysis exists
+    if (analysis && analysis.engine && analysis.engine.includes('ai')) {
+      let aiDownloadBtn = detailView.querySelector('.btn[onclick*="downloadAIFindings"]');
+      if (!aiDownloadBtn) {
+        aiDownloadBtn = document.createElement('button');
+        aiDownloadBtn.className = 'btn';
+        aiDownloadBtn.textContent = '📄 Download AI Findings PDF';
+        aiDownloadBtn.onclick = () => downloadAIFindings(reportId);
+        aiDownloadBtn.style.marginLeft = '8px';
+        aiDownloadBtn.style.backgroundColor = '#6ea8fe';
+        
+        const buttonContainer = detailView.querySelector('.card > div[style*="margin:8px 0 14px"]');
+        if (buttonContainer) {
+          buttonContainer.appendChild(aiDownloadBtn);
+        }
+      }
+    }
+    
     // Add reprocess button if needed
     let reprocessBtn = detailView.querySelector('.btn[onclick*="reprocess"]');
     if (!reprocessBtn && report.status === 'DONE') {
@@ -466,6 +484,40 @@
     } catch (error) {
       console.error('Download failed:', error);
       alert('Download mislukt');
+    }
+  }
+
+  // Download AI findings PDF
+  async function downloadAIFindings(reportId) {
+    try {
+      console.log(`Downloading AI findings for report ${reportId}`);
+      
+      const response = await fetch(`${API_BASE_URL}/reports/${reportId}/ai-findings`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          alert('AI findings PDF nog niet beschikbaar. Probeer het later opnieuw.');
+          return;
+        }
+        throw new Error(`Download failed: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai_findings_${reportId}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      console.log('AI findings PDF downloaded successfully');
+    } catch (error) {
+      console.error('AI findings download failed:', error);
+      alert('AI findings download mislukt: ' + error.message);
     }
   }
 
