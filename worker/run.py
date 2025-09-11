@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rq import Worker, Queue, Connection
-from app.queue.conn import redis_conn
+from app.redis_queue.conn import redis_conn
 
 # Configure logging
 logging.basicConfig(
@@ -63,10 +63,10 @@ if __name__ == "__main__":
         from app.config import settings
         logger.info("✅ Settings import successful")
         
-        from app.queue.conn import redis_conn, reports_queue
+        from app.redis_queue.conn import redis_conn, reports_queue
         logger.info("✅ Queue imports successful")
         
-        from app.queue.jobs import process_report
+        from app.redis_queue.jobs import process_report
         logger.info("✅ Jobs import successful")
         
         from app.database import get_db_url

@@ -239,7 +239,7 @@ def generate_conclusion_pdf(
                 
                 # Strategy 4: Try ReportLab as ultimate fallback
                 try:
-                    from app.queue.simple_pdf_generator import generate_simple_pdf
+                    from app.redis_queue.simple_pdf_generator import generate_simple_pdf
                     pdf_bytes = generate_simple_pdf(
                         filename,
                         summary,

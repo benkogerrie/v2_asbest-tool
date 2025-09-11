@@ -22,7 +22,7 @@ from app.services.analyzer.rules import analyze_text_to_result, run_rules_v1, RU
 from app.services.analyzer.text_extraction import extract_text_from_pdf
 from app.services.pdf.conclusion_reportlab import build_conclusion_pdf
 from app.services.email import email_service
-from app.queue.ai_analysis import run_ai_analysis
+from app.redis_queue.ai_analysis import run_ai_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ def _process_report_ai(report_id: str) -> bool:
                 logger.info(f"Downloaded PDF for report {report_id}: {len(pdf_bytes)} bytes")
                 
                 # Run AI analysis
-                from app.queue.ai_analysis import run_ai_analysis
+                from app.redis_queue.ai_analysis import run_ai_analysis
                 import asyncio
                 
                 # Run async AI analysis in sync context

@@ -24,7 +24,7 @@ from app.auth.dependencies import get_current_admin_or_system_owner
 from app.services.storage import storage
 from app.exceptions import UnsupportedFileTypeError, FileTooLargeError, StorageError
 from app.config import settings
-from app.queue.conn import reports_queue, redis_conn
+from app.redis_queue.conn import reports_queue, redis_conn
 from rq import Retry
 from pydantic import BaseModel
 from typing import Dict
@@ -171,7 +171,7 @@ async def upload_report(
             # Check Redis availability before enqueuing
             redis_conn().ping()
             reports_queue().enqueue(
-                "app.queue.jobs.process_report",
+                "app.redis_queue.jobs.process_report_with_ai",
                 report_id=str(report.id),
                 retry=Retry(max=settings.job_max_retries),
                 job_timeout=settings.job_timeout_seconds
@@ -974,7 +974,7 @@ async def reanalyze_report(
         
         # Enqueue AI analysis job
         job = reports_queue.enqueue(
-            'app.queue.jobs.process_report_ai',
+            'app.redis_queue.jobs.process_report_with_ai',
             report_id,
             retry=Retry(max=3, interval=60)
         )
