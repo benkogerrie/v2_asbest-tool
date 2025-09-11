@@ -143,7 +143,39 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                         created_at=datetime.now(timezone.utc),
                     ))
 
-                # 7) Update Report
+                # 7) Create Analysis record
+                analysis = Analysis(
+                    id=uuid.uuid4(),
+                    report_id=uuid.UUID(report_id),
+                    engine="ai_anthropic",
+                    engine_version="claude-3-5-sonnet-20241022",
+                    score=ai_output.score,
+                    summary=ai_output.report_summary or "AI analyse voltooid",
+                    rules_passed=0,  # AI doesn't use rules
+                    rules_failed=0,
+                    started_at=datetime.now(timezone.utc),
+                    finished_at=datetime.now(timezone.utc),
+                    duration_ms=0,  # Could be calculated
+                    raw_metadata={"ai_analysis": True, "provider": "anthropic"}
+                )
+                session.add(analysis)
+                await session.flush()  # Get the analysis ID
+
+                # 8) Create Finding records
+                for finding in ai_output.findings:
+                    finding_record = Finding(
+                        analysis_id=analysis.id,
+                        rule_id=finding.code,
+                        section="AI Analysis",  # AI findings don't have sections
+                        severity=finding.severity,
+                        message=finding.title or finding.code,
+                        suggestion=finding.suggested_fix,
+                        evidence=finding.evidence_snippet,
+                        tags=[]  # AI findings don't have tags
+                    )
+                    session.add(finding_record)
+
+                # 9) Update Report
                 report = await session.get(Report, uuid.UUID(report_id))
                 if report:
                     report.score = ai_output.score
