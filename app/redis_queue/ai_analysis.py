@@ -239,7 +239,7 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                 # Log analysis failure
                 audit_failed = ReportAuditLog(
                     report_id=uuid.UUID(report_id),
-                    action=AuditAction.PROCESS_FAILED,
+                    action=AuditAction.PROCESS_FAIL,
                     note=f"AI analysis failed: {str(e)}"
                 )
                 session.add(audit_failed)

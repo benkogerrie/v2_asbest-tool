@@ -91,10 +91,14 @@ def _process_report_ai(report_id: str) -> bool:
                     return False
                 
                 # Download PDF from storage
-                pdf_bytes = storage.download_object(report.source_object_key)
-                if not pdf_bytes:
+                pdf_file = storage.download_fileobj(report.source_object_key)
+                if not pdf_file:
                     logger.error(f"Failed to download PDF for report {report_id}")
                     return False
+                
+                # Read PDF bytes
+                pdf_bytes = pdf_file.read()
+                pdf_file.close()
                 
                 logger.info(f"Downloaded PDF for report {report_id}: {len(pdf_bytes)} bytes")
                 
@@ -124,7 +128,7 @@ def _process_report_ai(report_id: str) -> bool:
             # Log AI analysis failure
             audit_failed = ReportAuditLog(
                 report_id=uuid.UUID(report_id),
-                action=AuditAction.PROCESS_FAILED,
+                action=AuditAction.PROCESS_FAIL,
                 note=f"AI analysis failed: {str(e)}"
             )
             session.add(audit_failed)
