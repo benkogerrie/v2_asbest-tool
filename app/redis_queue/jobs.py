@@ -116,8 +116,7 @@ def _process_report_ai(report_id: str) -> bool:
                     
             except Exception as e:
                 logger.error(f"AI analysis failed for report {report_id}: {e}")
-                logger.warning("Falling back to rules-based analysis")
-                return process_report(report_id)
+                raise Exception(f"AI analysis failed: {e}")
 
         except Exception as e:
             logger.error(f"AI analysis failed for report {report_id}: {e}")
@@ -186,9 +185,7 @@ def process_report(report_id: str) -> bool:
                 logger.info(f"Extracted {len(text)} characters from PDF")
             except Exception as e:
                 logger.error(f"Text extraction failed: {e}")
-                # Fallback to dummy text for now
-                text = "Dummy text for testing - this will be replaced with actual PDF extraction"
-                logger.warning("Using dummy text for analysis")
+                raise Exception(f"PDF text extraction failed: {e}")
 
             # Run rule-based analysis
             analysis_result = analyze_text_to_result(report.id, text)
