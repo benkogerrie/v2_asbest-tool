@@ -113,37 +113,7 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                 
                 logger.info(f"AI analysis completed: score={ai_output.score}, findings={len(ai_output.findings)}")
 
-                # 5) Persist Analysis
-                analysis = Analysis(
-                    id=uuid.uuid4(),
-                    report_id=uuid.UUID(report_id),
-                    engine="AI",
-                    engine_version="ai-1.0.0",
-                    score=ai_output.score,
-                    summary=ai_output.report_summary or "AI analysis completed",
-                    rules_passed=len([f for f in ai_output.findings if f.status == "PASS"]),
-                    rules_failed=len([f for f in ai_output.findings if f.status == "FAIL"]),
-                    started_at=datetime.now(timezone.utc),
-                    finished_at=datetime.now(timezone.utc),
-                    duration_ms=0,  # TODO: Calculate actual duration
-                    raw_metadata={"ai_provider": llm.provider, "ai_model": llm.model}
-                )
-                session.add(analysis)
-                await session.flush()
-
-                # 6) Persist Findings
-                for finding in ai_output.findings:
-                    session.add(Finding(
-                        id=uuid.uuid4(),
-                        analysis_id=analysis.id,
-                        rule_id=finding.code,
-                        severity=finding.severity,
-                        message=finding.title or finding.code,
-                        evidence=finding.evidence_snippet,
-                        created_at=datetime.now(timezone.utc),
-                    ))
-
-                # 7) Create Analysis record
+                # 5) Create Analysis record
                 analysis = Analysis(
                     id=uuid.uuid4(),
                     report_id=uuid.UUID(report_id),
@@ -161,7 +131,7 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                 session.add(analysis)
                 await session.flush()  # Get the analysis ID
 
-                # 8) Create Finding records
+                # 6) Create Finding records
                 for finding in ai_output.findings:
                     finding_record = Finding(
                         analysis_id=analysis.id,
@@ -174,16 +144,20 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                         tags=[]  # AI findings don't have tags
                     )
                     session.add(finding_record)
+                
+                # Commit all changes
+                await session.commit()
 
-                # 9) Update Report
+                # 7) Update Report
                 report = await session.get(Report, uuid.UUID(report_id))
                 if report:
                     report.score = ai_output.score
                     report.finding_count = len(ai_output.findings)
                     report.status = ReportStatus.DONE
                     report.updated_at = datetime.now(timezone.utc)
+                    await session.commit()
 
-                # Generate conclusion PDF
+                # 8) Generate conclusion PDF
                 try:
                     logger.info(f"Generating conclusion PDF for report {report_id}")
                     
@@ -234,6 +208,7 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                     
                     # Update report with conclusion key
                     report.conclusion_object_key = conclusion_key
+                    await session.commit()
                     
                     # Cleanup temp PDF
                     Path(temp_pdf_path).unlink(missing_ok=True)
