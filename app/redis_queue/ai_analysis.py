@@ -39,7 +39,8 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
     
     try:
         # Create async database session
-        db_url = get_db_url()
+        from app.config import settings
+        db_url = settings.database_url  # This is already async URL
         from sqlalchemy.ext.asyncio import create_async_engine
         engine = create_async_engine(db_url)
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -200,11 +201,13 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                     # Upload PDF to storage
                     with open(temp_pdf_path, 'rb') as pdf_file:
                         conclusion_key = f"tenants/{tenant_id}/reports/{report_id}/conclusion/conclusion.pdf"
-                        await storage.upload_file(
-                            key=conclusion_key,
-                            file_obj=pdf_file,
+                        success = storage.upload_fileobj(
+                            fileobj=pdf_file,
+                            object_key=conclusion_key,
                             content_type="application/pdf"
                         )
+                        if not success:
+                            raise Exception("Failed to upload conclusion PDF")
                     
                     # Update report with conclusion key
                     report.conclusion_object_key = conclusion_key
