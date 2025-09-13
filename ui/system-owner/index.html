@@ -763,16 +763,19 @@
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('asbest_jwt')}`
+          // Don't set Content-Type for FormData - let browser set it with boundary
         },
         body: formData
       });
 
-      if (response) {
+      if (response.ok) {
+        const result = await response.json();
         bar.style.width = '100%';
-        alert(`✅ Rapport "${file.name}" succesvol geüpload!\n\nStatus: ${response.status}\nID: ${response.id}`);
+        alert(`✅ Rapport "${file.name}" succesvol geüpload!\n\nStatus: ${result.status}\nID: ${result.id}`);
         loadReports(); // Refresh reports list
       } else {
-        alert(`❌ Upload mislukt: HTTP ${response.status}`);
+        const error = await response.json();
+        alert(`❌ Upload mislukt: HTTP ${response.status} - ${error.detail || 'Onbekende fout'}`);
       }
     } catch (error) {
       console.error('Upload error:', error);
