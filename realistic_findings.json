@@ -1,0 +1,82 @@
+
+
+ht
+
+
+{
+  "report_id": "8a232d43-9386-477f-9bf8-98dfd9f5c070",
+  "filename": "24.7779 Nieuwe Holleweg 61 Beek-Ubbergen.pdf",
+  "analysis": {
+    "id": "analysis-123",
+    "engine": "ai_anthropic",
+    "engine_version": "claude-3-5-sonnet-20241022",
+    "score": 68.5,
+    "summary": "Rapport voldoet gedeeltelijk aan de eisen. Meerdere kritieke en hoge bevindingen gevonden die aandacht vereisen.",
+    "findings_count": 7
+  },
+  "findings": [
+    {
+      "id": "finding-1",
+      "rule_id": "ART22_001",
+      "severity": "CRITICAL",
+      "message": "Handtekening van bevoegd persoon ontbreekt",
+      "suggestion": "Voeg handtekening toe van gecertificeerd asbestdeskundige",
+      "evidence": "Geen handtekening zichtbaar op pagina 3 waar deze vereist is",
+      "page": 3
+    },
+    {
+      "id": "finding-2",
+      "rule_id": "ART22_002",
+      "severity": "HIGH",
+      "message": "Datum rapport ontbreekt in header",
+      "suggestion": "Voeg duidelijke rapportdatum toe aan document header",
+      "evidence": "Header bevat geen datum informatie",
+      "page": 1
+    },
+    {
+      "id": "finding-3",
+      "rule_id": "ART22_003",
+      "severity": "HIGH",
+      "message": "Rapportnummer niet consistent gebruikt",
+      "suggestion": "Zorg voor consistent rapportnummering door het document",
+      "evidence": "Verschillende nummering gebruikt op pagina 2 en 4",
+      "page": 2
+    },
+    {
+      "id": "finding-4",
+      "rule_id": "ART22_004",
+      "severity": "MEDIUM",
+      "message": "Foto's van monsterlocaties ontbreken",
+      "suggestion": "Voeg foto's toe van alle monsterlocaties",
+      "evidence": "Geen foto's gevonden bij monsterbeschrijvingen",
+      "page": 5
+    },
+    {
+      "id": "finding-5",
+      "rule_id": "ART22_005",
+      "severity": "MEDIUM",
+      "message": "Labresultaten niet volledig weergegeven",
+      "suggestion": "Toon complete labresultaten inclusief detectielimieten",
+      "evidence": "Labresultaten tabel is onvolledig",
+      "page": 6
+    },
+    {
+      "id": "finding-6",
+      "rule_id": "ART22_006",
+      "severity": "LOW",
+      "message": "Conclusie sectie te beknopt",
+      "suggestion": "Uitbreiden van conclusie met meer detail",
+      "evidence": "Conclusie bevat slechts 2 zinnen",
+      "page": 8
+    },
+    {
+      "id": "finding-7",
+      "rule_id": "ART22_007",
+      "severity": "LOW",
+      "message": "Aanbevelingen ontbreken",
+      "suggestion": "Voeg concrete aanbevelingen toe voor vervolgstappen",
+      "evidence": "Geen aanbevelingen sectie gevonden",
+      "page": 8
+    }
+  ]
+}

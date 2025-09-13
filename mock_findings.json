@@ -1,0 +1,40 @@
+{
+  "report_id": "8a232d43-9386-477f-9bf8-98dfd9f5c070",
+  "analysis": {
+    "id": "mock-analysis-id",
+    "engine": "ai_anthropic",
+    "engine_version": "claude-3-5-sonnet-20241022",
+    "score": 75.5,
+    "summary": "Rapport voldoet grotendeels aan de eisen. Enkele verbeterpunten gevonden.",
+    "findings_count": 3
+  },
+  "findings": [
+    {
+      "id": "finding-1",
+      "rule_id": "ART22_001",
+      "severity": "HIGH",
+      "message": "Handtekening ontbreekt op pagina 3",
+      "suggestion": "Voeg handtekening toe van bevoegd persoon",
+      "evidence": "Geen handtekening zichtbaar in het document",
+      "page": 3
+    },
+    {
+      "id": "finding-2",
+      "rule_id": "ART22_002",
+      "severity": "MEDIUM",
+      "message": "Datum ontbreekt in rapport header",
+      "suggestion": "Voeg rapportdatum toe aan de header",
+      "evidence": "Header bevat geen datum informatie",
+      "page": 1
+    },
+    {
+      "id": "finding-3",
+      "rule_id": "ART22_003",
+      "severity": "LOW",
+      "message": "Rapportnummer niet consistent",
+      "suggestion": "Zorg voor consistent rapportnummering",
+      "evidence": "Verschillende nummering gebruikt in document",
+      "page": 2
+    }
+  ]
+}

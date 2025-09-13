@@ -472,6 +472,8 @@
       case 'Rapporten':
         loadReports();
         loadTenantsForUpload();
+        // Force reload tenants after a short delay
+      setTimeout(loadTenants, 1000);
         break;
       case 'Prompts':
         loadPrompts();
