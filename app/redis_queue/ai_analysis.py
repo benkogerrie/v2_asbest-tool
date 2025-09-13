@@ -192,45 +192,14 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                         ]
                     }
                     
-                    # Generate PDF in a separate thread to avoid async conflicts
-                    import asyncio
-                    import concurrent.futures
+                    # Generate PDF - skip for now to avoid async conflicts
+                    # TODO: Fix PDF generation async issue
+                    temp_pdf_path = None
+                    logger.info(f"Skipping PDF generation for report {report_id} due to async conflicts")
                     
-                    temp_pdf_path = f"/tmp/conclusion_{report_id}.pdf"
-                    
-                    def generate_pdf_sync():
-                        return generate_conclusion_pdf(
-                            output_path=temp_pdf_path,
-                            report_meta=report_meta,
-                            ai_analysis=ai_analysis_dict,
-                            bag_data=None,  # Could be added later
-                            streetview_path=None  # Could be added later
-                        )
-                    
-                    # Run PDF generation in thread pool
-                    loop = asyncio.get_event_loop()
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        await loop.run_in_executor(executor, generate_pdf_sync)
-                    
-                    # Upload PDF to storage
-                    with open(temp_pdf_path, 'rb') as pdf_file:
-                        conclusion_key = f"tenants/{tenant_id}/reports/{report_id}/conclusion/conclusion.pdf"
-                        success = storage.upload_fileobj(
-                            fileobj=pdf_file,
-                            object_key=conclusion_key,
-                            content_type="application/pdf"
-                        )
-                        if not success:
-                            raise Exception("Failed to upload conclusion PDF")
-                    
-                    # Update report with conclusion key
-                    report.conclusion_object_key = conclusion_key
-                    await session.commit()
-                    
-                    # Cleanup temp PDF
-                    Path(temp_pdf_path).unlink(missing_ok=True)
-                    
-                    logger.info(f"Conclusion PDF generated and uploaded for report {report_id}")
+                    # Skip PDF upload for now
+                    # TODO: Fix PDF generation and upload
+                    logger.info(f"Skipping PDF upload for report {report_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to generate conclusion PDF for report {report_id}: {e}")
