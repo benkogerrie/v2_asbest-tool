@@ -85,7 +85,16 @@ class LLMService:
                 logger.error("AI returned empty response")
                 raise ValueError("AI returned empty response")
             
-            data = json.loads(text)
+            # Clean up markdown formatting if present
+            cleaned_text = text.strip()
+            if cleaned_text.startswith("```json"):
+                # Remove markdown code block formatting
+                cleaned_text = cleaned_text[7:]  # Remove ```json
+            if cleaned_text.endswith("```"):
+                cleaned_text = cleaned_text[:-3]  # Remove ```
+            cleaned_text = cleaned_text.strip()
+            
+            data = json.loads(cleaned_text)
             return AIOutput(**data)
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error("AI output parse error: %s", e)
