@@ -115,21 +115,8 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                     logger.info(f"AI analysis completed: score={ai_output.score}, findings={len(ai_output.findings)}")
                 except Exception as e:
                     logger.error(f"AI analysis failed: {e}")
-                    # Fallback to basic analysis
-                    logger.info("Falling back to basic analysis...")
-                    ai_output = type('AIOutput', (), {
-                        'score': 50,  # Default score
-                        'report_summary': 'AI analyse niet beschikbaar - basis analyse uitgevoerd',
-                        'findings': [{
-                            'code': 'AI_UNAVAILABLE',
-                            'title': 'AI analyse niet beschikbaar',
-                            'category': 'ADMIN',
-                            'severity': 'MEDIUM',
-                            'status': 'UNKNOWN',
-                            'evidence_snippet': 'AI service was niet beschikbaar tijdens analyse',
-                            'suggested_fix': 'Probeer opnieuw of neem contact op met support'
-                        }]
-                    })()
+                    # Mark as failed - no fallback analysis
+                    raise Exception(f"AI analysis failed: {e}")
 
                 # 5) Create Analysis record
                 analysis = Analysis(
