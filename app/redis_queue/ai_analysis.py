@@ -192,15 +192,25 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                         ]
                     }
                     
-                    # Generate PDF
+                    # Generate PDF in a separate thread to avoid async conflicts
+                    import asyncio
+                    import concurrent.futures
+                    
                     temp_pdf_path = f"/tmp/conclusion_{report_id}.pdf"
-                    generate_conclusion_pdf(
-                        output_path=temp_pdf_path,
-                        report_meta=report_meta,
-                        ai_analysis=ai_analysis_dict,
-                        bag_data=None,  # Could be added later
-                        streetview_path=None  # Could be added later
-                    )
+                    
+                    def generate_pdf_sync():
+                        return generate_conclusion_pdf(
+                            output_path=temp_pdf_path,
+                            report_meta=report_meta,
+                            ai_analysis=ai_analysis_dict,
+                            bag_data=None,  # Could be added later
+                            streetview_path=None  # Could be added later
+                        )
+                    
+                    # Run PDF generation in thread pool
+                    loop = asyncio.get_event_loop()
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        await loop.run_in_executor(executor, generate_pdf_sync)
                     
                     # Upload PDF to storage
                     with open(temp_pdf_path, 'rb') as pdf_file:
