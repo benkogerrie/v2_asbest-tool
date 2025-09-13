@@ -34,10 +34,27 @@ class LLMService:
             "messages": [{"role": "user", "content": user_prompt}],
             "max_tokens": self.max_tokens,
         }
+        
+        logger.info(f"Calling Anthropic API with model: {self.model}")
+        logger.info(f"System prompt length: {len(system_prompt)}")
+        logger.info(f"User prompt length: {len(user_prompt)}")
+        
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(url, headers=headers, json=body)
-            resp.raise_for_status()
+            
+            logger.info(f"Anthropic API response status: {resp.status_code}")
+            
+            if resp.status_code != 200:
+                logger.error(f"Anthropic API error: {resp.status_code} - {resp.text}")
+                raise Exception(f"Anthropic API error: {resp.status_code}")
+            
             data = resp.json()
+            logger.info(f"Anthropic API response data keys: {list(data.keys())}")
+            
+            if "content" not in data or not data["content"]:
+                logger.error(f"Anthropic API returned no content: {data}")
+                raise Exception("Anthropic API returned no content")
+            
             text = data["content"][0]["text"]
             return self._parse_json(text)
 
@@ -61,8 +78,16 @@ class LLMService:
 
     def _parse_json(self, text: str) -> AIOutput:
         try:
+            # Log the raw response for debugging
+            logger.info(f"AI raw response: {text[:500]}...")
+            
+            if not text or not text.strip():
+                logger.error("AI returned empty response")
+                raise ValueError("AI returned empty response")
+            
             data = json.loads(text)
             return AIOutput(**data)
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error("AI output parse error: %s", e)
+            logger.error("Raw response was: %s", text)
             raise

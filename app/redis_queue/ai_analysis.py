@@ -109,10 +109,27 @@ async def run_ai_analysis(report_id: str, tenant_id: str, pdf_bytes: bytes):
                 user_prompt = text[:50000]  # Limit to 50k chars for API limits
 
                 # 4) Call LLM
-                llm = LLMService()
-                ai_output = await llm.call(system_prompt, user_prompt)
-                
-                logger.info(f"AI analysis completed: score={ai_output.score}, findings={len(ai_output.findings)}")
+                try:
+                    llm = LLMService()
+                    ai_output = await llm.call(system_prompt, user_prompt)
+                    logger.info(f"AI analysis completed: score={ai_output.score}, findings={len(ai_output.findings)}")
+                except Exception as e:
+                    logger.error(f"AI analysis failed: {e}")
+                    # Fallback to basic analysis
+                    logger.info("Falling back to basic analysis...")
+                    ai_output = type('AIOutput', (), {
+                        'score': 50,  # Default score
+                        'report_summary': 'AI analyse niet beschikbaar - basis analyse uitgevoerd',
+                        'findings': [{
+                            'code': 'AI_UNAVAILABLE',
+                            'title': 'AI analyse niet beschikbaar',
+                            'category': 'ADMIN',
+                            'severity': 'MEDIUM',
+                            'status': 'UNKNOWN',
+                            'evidence_snippet': 'AI service was niet beschikbaar tijdens analyse',
+                            'suggested_fix': 'Probeer opnieuw of neem contact op met support'
+                        }]
+                    })()
 
                 # 5) Create Analysis record
                 analysis = Analysis(
