@@ -85,13 +85,34 @@ class LLMService:
                 logger.error("AI returned empty response")
                 raise ValueError("AI returned empty response")
             
-            # Clean up markdown formatting if present
+            # Clean up markdown formatting and extract JSON
             cleaned_text = text.strip()
-            if cleaned_text.startswith("```json"):
-                # Remove markdown code block formatting
-                cleaned_text = cleaned_text[7:]  # Remove ```json
-            if cleaned_text.endswith("```"):
-                cleaned_text = cleaned_text[:-3]  # Remove ```
+            
+            # Find JSON block - look for ```json or just {
+            json_start = -1
+            if "```json" in cleaned_text:
+                json_start = cleaned_text.find("```json") + 7
+            elif cleaned_text.startswith("```json"):
+                json_start = 7
+            elif "{" in cleaned_text:
+                json_start = cleaned_text.find("{")
+            
+            if json_start >= 0:
+                # Extract from JSON start to end
+                json_text = cleaned_text[json_start:]
+                # Find the end of JSON (last })
+                json_end = json_text.rfind("}")
+                if json_end >= 0:
+                    cleaned_text = json_text[:json_end + 1]
+                else:
+                    cleaned_text = json_text
+            else:
+                # Fallback: try to find JSON object
+                if "{" in cleaned_text and "}" in cleaned_text:
+                    start = cleaned_text.find("{")
+                    end = cleaned_text.rfind("}") + 1
+                    cleaned_text = cleaned_text[start:end]
+            
             cleaned_text = cleaned_text.strip()
             
             data = json.loads(cleaned_text)
